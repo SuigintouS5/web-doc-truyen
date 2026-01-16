@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="story-detail-container">
+    
+    <div class="story-header-flex">
+        <div class="story-cover-wrapper">
+            {% if truyen.anh %}
+                <img src="{{ truyen.anh.url }}" alt="{{ truyen.ten }}" class="story-detail-img">
+            {% else %}
+                <div class="no-img"></div>
+            {% endif %}
+        </div>
+
+        <div class="story-main-info">
+            <h1 class="story-title-detail">{{ truyen.ten }}</h1>
+            <p class="story-author"><strong>Tác giả:</strong> {{ truyen.tac_gia }}</p>
+            <div class="story-stats">
+                <span class="badge-green">Đang tiến hành</span>
+            </div>
+            
+            {% if genres %}
+            <div class="story-genres">
+                <strong>Thể loại:</strong>
+                <div class="genres-container">
+                    {% for genre in genres %}
+                    <a href="/the-loai/{{ genre.slug }}/" class="genre-tag">{{ genre.name }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <div class="story-description-section">
+        <h2 class="section-title-small">Giới thiệu</h2>
+        <div class="story-description-text">
+            {{ truyen.mo_ta|linebreaks }}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

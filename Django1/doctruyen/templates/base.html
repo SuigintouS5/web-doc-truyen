@@ -1,0 +1,78 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Đọc Truyện{% endblock %}</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  
+  <style>
+    /* Bổ sung nhanh CSS cho container dùng chung để Header và Body thẳng hàng */
+    .container-layout {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <header class="site-header">
+    <div class="header-inner container-layout">
+      
+      <a class="logo" href="{% url 'truyen-list' %}">
+        <img src="{% static 'img/logo.svg' %}" alt="Đọc Truyện logo">
+      </a>
+
+      <form class="search-form" method="get" action="">
+        <input type="text" name="q" placeholder="Tìm kiếm truyện..." autocomplete="off">
+      </form>
+
+      <div class="header-actions">
+        
+        <div class="icons">
+          <a class="icon heart" href="#" aria-label="Yêu thích">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+  </svg>
+</a>
+
+          <a class="icon bell" href="#" aria-label="Thông báo">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z"/>
+            </svg>
+          </a>
+        </div>
+
+        <a href="/admin/login/" class="login-btn">Đăng nhập</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container-layout">
+        
+      {% if messages %}
+        <ul class="messages">
+          {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+      
+    </div>
+  </main>
+
+  <footer>
+    <div class="container-layout">
+        <p>&copy; {% now "Y" %} Đọc Truyện - Nền tảng truyện tranh hàng đầu.</p>
+    </div>
+  </footer>
+</body>
+</html>

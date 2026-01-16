@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<section class="story-section">
+  <div class="section-header">
+    <h2 class="section-title">TRUYỆN NỔI BẬT</h2>
+  </div>
+
+  <div class="story-grid">
+    {% for t in ds|slice:":6" %}
+    <a href="{{ t.get_absolute_url }}" class="story-card">
+      <div class="card-thumb">
+        {% if t.anh %}
+          <img src="{{ t.anh.url }}" alt="{{ t.ten }}" loading="lazy">
+        {% else %}
+          <div class="no-img"></div>
+        {% endif %}
+
+        <div class="card-overlay"></div>
+
+        <div class="card-info">
+          <div class="chapter-text">
+            Chương {{ t.chuong_moi_nhat|default:"?" }}
+          </div>
+          <span class="badge-green">Tập mới</span>
+        </div>
+      </div>
+
+      <h3 class="story-title" title="{{ t.ten }}">
+        {{ t.ten }}
+      </h3>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="story-section">
+  <div class="section-header">
+    <h2 class="section-title">MỚI CẬP NHẬT</h2>
+  </div>
+
+  <div class="story-grid">
+    {% for t in ds %}
+    <a href="{{ t.get_absolute_url }}" class="story-card">
+      <div class="card-thumb">
+        {% if t.anh %}
+          <img src="{{ t.anh.url }}" alt="{{ t.ten }}" loading="lazy">
+        {% else %}
+          <div class="no-img"></div>
+        {% endif %}
+
+        <div class="card-overlay"></div>
+
+        <div class="card-info">
+          <div class="chapter-text">
+            Chương {{ t.chuong_moi_nhat|default:"?" }}
+          </div>
+          <span class="badge-green">Mới</span>
+        </div>
+      </div>
+
+      <h3 class="story-title" title="{{ t.ten }}">
+        {{ t.ten }}
+      </h3>
+    </a>
+    {% empty %}
+      <p>Không có truyện nào</p>
+    {% endfor %}
+  </div>
+</section>
+
+{% endblock %}
