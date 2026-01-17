@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Đăng nhập | Đăng ký{% endblock %}
+
+{% block content %}
+
+<!-- CSS riêng cho login -->
+<link rel="stylesheet" href="{% static 'css/login.css' %}">
+
+{# ===== AUTO OPEN MODAL KHI CÓ MESSAGE ===== #}
+{% if messages %}
+  {% with messages.0 as message %}
+    <script>
+      window.AUTH_OPEN = true;
+      window.AUTH_MODE = "{{ message.tags }}";  // login | register
+    </script>
+  {% endwith %}
+{% endif %}
+
+<!-- ================= AUTH OVERLAY ================= -->
+<div class="auth-overlay" id="authOverlay">
+
+  <div class="auth-modal">
+
+    <!-- Close -->
+    <button class="auth-close" id="closeAuth" type="button">×</button>
+
+    <!-- Header -->
+    <div class="auth-header">
+      <div class="auth-logo">A</div>
+      <h2 id="authTitle">Đăng nhập</h2>
+      <p id="authDesc">Chào mừng bạn quay lại</p>
+    </div>
+
+    <!-- ================= LOGIN FORM ================= -->
+    <form
+      method="post"
+      action="{% url 'user-login' %}"
+      class="auth-form active"
+      id="loginForm"
+    >
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label>Email hoặc Tên đăng nhập</label>
+        <input type="text" name="username" required>
+      </div>
+
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <div class="password-wrapper">
+          <input type="password" name="password" required>
+          <span class="toggle-password" title="Hiện / Ẩn mật khẩu">👁</span>
+        </div>
+      </div>
+
+      <div class="auth-extra">
+        <a href="#">Quên mật khẩu?</a>
+      </div>
+
+      <button type="submit" class="auth-btn">
+        Đăng nhập
+      </button>
+
+      <div class="divider">Hoặc</div>
+
+      <div class="social-buttons">
+        <button type="button">Google</button>
+        <button type="button">Facebook</button>
+      </div>
+
+      <div class="switch-auth">
+        Chưa có tài khoản?
+        <span data-switch="register">Đăng ký</span>
+      </div>
+    </form>
+
+    <!-- ================= REGISTER FORM ================= -->
+    <form
+      method="post"
+      action="{% url 'user-register' %}"
+      class="auth-form"
+      id="registerForm"
+    >
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label>Tên đăng nhập</label>
+        <input type="text" name="username" required>
+      </div>
+
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" required>
+      </div>
+
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input type="password" name="password" minlength="6" required>
+      </div>
+
+      <div class="form-group">
+        <label>Xác nhận mật khẩu</label>
+        <input type="password" name="password_confirm" required>
+      </div>
+
+      <label class="checkbox">
+        <input type="checkbox" name="agree_terms" required>
+        <span>Tôi đồng ý với Điều khoản & Chính sách</span>
+      </label>
+
+      <button type="submit" class="auth-btn">
+        Đăng ký
+      </button>
+
+      <div class="switch-auth">
+        Đã có tài khoản?
+        <span data-switch="login">Đăng nhập</span>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<!-- JS -->
+<script src="{% static 'img/login.js' %}"></script>
+
+{% endblock %}

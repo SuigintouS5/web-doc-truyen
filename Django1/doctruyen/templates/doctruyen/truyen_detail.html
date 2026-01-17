@@ -1,45 +1,107 @@
 {% extends 'base.html' %}
-
 {% block content %}
-<div class="story-detail-container">
-    
-    <div class="story-header-flex">
-        <div class="story-cover-wrapper">
-            {% if truyen.anh %}
-                <img src="{{ truyen.anh.url }}" alt="{{ truyen.ten }}" class="story-detail-img">
-            {% else %}
-                <div class="no-img"></div>
-            {% endif %}
-        </div>
 
-        <div class="story-main-info">
+<div class="story-detail-page">
+  <div class="story-detail-container">
+
+    <div class="story-detail-layout">
+
+      <div class="story-left">
+
+        <div class="story-header-flex">
+          <div class="story-cover-wrapper">
+            <img src="{{ truyen.anh.url }}" alt="{{ truyen.ten }}">
+          </div>
+
+          <div class="story-main-info">
             <h1 class="story-title-detail">{{ truyen.ten }}</h1>
-            <p class="story-author"><strong>Tác giả:</strong> {{ truyen.tac_gia }}</p>
-            <div class="story-stats">
-                <span class="badge-green">Đang tiến hành</span>
-            </div>
-            
+            <p class="story-author">Tác giả: {{ truyen.tac_gia }}</p>
+            <div class="story-rating">⭐ Chưa có đánh giá</div>
+            <span class="badge-green">Đang tiến hành</span>
+
             {% if genres %}
             <div class="story-genres">
-                <strong>Thể loại:</strong>
-                <div class="genres-container">
-                    {% for genre in genres %}
-                    <a href="/the-loai/{{ genre.slug }}/" class="genre-tag">{{ genre.name }}</a>
-                    {% endfor %}
-                </div>
+              <div class="genres-container">
+                {% for genre in genres %}
+                  <a href="/the-loai/{{ genre.slug }}/" class="genre-tag">
+                    {{ genre.name }}
+                  </a>
+                {% endfor %}
+              </div>
             </div>
             {% endif %}
+
+            <div class="story-actions">
+              <a href="#" class="btn-primary">▶ Đọc ngay</a>
+              <button class="btn-outline">♡ Theo dõi</button>
+              {% if can_edit %}
+              <a href="{% url 'truyen-edit' truyen.slug %}" class="btn-primary" style="background-color: #ef4444;">✏️ Chỉnh sửa</a>
+              {% endif %}
+            </div>
+          </div>
         </div>
-    </div>
 
-    <hr class="section-divider">
-
-    <div class="story-description-section">
-        <h2 class="section-title-small">Giới thiệu</h2>
-        <div class="story-description-text">
+        <div class="story-left-box">
+          <h2>Giới thiệu</h2>
+          <div id="desc" class="story-description-text">
             {{ truyen.mo_ta|linebreaks }}
-        </div>
-    </div>
+          </div>
+          <span id="toggleDesc" class="read-more" style="cursor: pointer; color: #2ecc71; font-weight: 600;">Xem thêm</span>
 
+          <div class="comment-section">
+            <h2>Bình luận</h2>
+            {% if user.is_authenticated %}
+            <form method="post" class="comment-box">
+              {% csrf_token %}
+              <textarea name="noi_dung" placeholder="Nhập bình luận..."></textarea>
+              <button type="submit" class="btn-primary" style="margin-top: 10px; border: none; cursor: pointer;">Gửi</button>
+            </form>
+            {% else %}
+            <p class="muted-text">Vui lòng đăng nhập để bình luận.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <aside class="story-right">
+        
+        <div class="translator-card">
+          <div class="translator-header">
+            <div class="translator-avatar"></div>
+            <div class="translator-name">Chưa có thông tin người dịch</div>
+          </div>
+        </div>
+
+        <div class="sidebar-box">
+          <h4 class="sidebar-title">Danh sách chương</h4>
+          <ul class="chapter-list">
+            {% for c in chuongs %}
+            <li>
+              <a href="#">
+                Chương {{ c.so_chuong }}: {{ c.ten }}
+              </a>
+            </li>
+            {% empty %}
+            <li class="muted-text" style="padding: 10px 0;">Chưa có chương</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+      </aside>
+      </div>
+  </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const btn = document.getElementById('toggleDesc');
+  const desc = document.getElementById('desc');
+  if (!btn || !desc) return;
+
+  btn.addEventListener('click', function () {
+    desc.classList.toggle('expanded');
+    btn.innerText = desc.classList.contains('expanded') ? 'Thu gọn' : 'Xem thêm';
+  });
+});
+</script>
+
 {% endblock %}
