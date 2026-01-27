@@ -3,24 +3,43 @@
 
 <div class="story-detail-page">
   <div class="story-detail-container">
-
     <div class="story-detail-layout">
 
       <div class="story-left">
-
         <div class="story-header-flex">
           <div class="story-cover-wrapper">
-            <img src="{{ truyen.anh.url }}" alt="{{ truyen.ten }}">
+            <img src="{{ truyen.get_anh_url }}" alt="{{ truyen.ten }}">
           </div>
 
           <div class="story-main-info">
             <h1 class="story-title-detail">{{ truyen.ten }}</h1>
             <p class="story-author">Tác giả: {{ truyen.tac_gia }}</p>
-            <div class="story-rating">⭐ Chưa có đánh giá</div>
-            <span class="badge-green">Đang tiến hành</span>
+            
+            <!-- ĐÁNH GIÁ -->
+            <div class="story-rating" id="ratingDisplay">
+              ⭐ <span id="ratingValue">{{ truyen.diem_trung_binh|floatformat:1 }}</span> 
+              (<span id="ratingCount">{{ truyen.so_luong_danh_gia }}</span> đánh giá)
+            </div>
+            
+            <!-- RATING STARS -->
+            {% if user.is_authenticated %}
+            <div class="story-rating-input">
+              <div class="stars" id="ratingStars">
+                {% for i in "12345" %}
+                  <span class="star" data-value="{{ i }}">★</span>
+                {% endfor %}
+              </div>
+              <p class="rating-hint">Click để đánh giá</p>
+            </div>
+            {% endif %}
+            
+            <!-- TÌNH TRẠNG TRUYỆN -->
+            <span class="badge-status badge-{{ truyen.trang_thai }}">{{ truyen.trang_thai_display }}</span>
 
+            <!-- THỂ LOẠI -->
             {% if genres %}
             <div class="story-genres">
+              <h4 style="font-size: 12px; font-weight: 600; color: #666; margin-bottom: 8px;">Thể loại:</h4>
               <div class="genres-container">
                 {% for genre in genres %}
                   <a href="/the-loai/{{ genre.slug }}/" class="genre-tag">
@@ -31,9 +50,10 @@
             </div>
             {% endif %}
 
+            <!-- ACTION BUTTONS -->
             <div class="story-actions">
-              <a href="#" class="btn-primary">▶ Đọc ngay</a>
-              <button class="btn-outline">♡ Theo dõi</button>
+              <a href="{% url 'read-now' truyen.slug %}" class="btn-primary" id="readNowBtn">▶ Đọc ngay</a>
+              <button class="btn-outline" id="followBtn">♡ Theo dõi</button>
               {% if can_edit %}
               <a href="{% url 'truyen-edit' truyen.slug %}" class="btn-primary" style="background-color: #ef4444;">✏️ Chỉnh sửa</a>
               {% endif %}
@@ -41,6 +61,7 @@
           </div>
         </div>
 
+        <!-- GIỚI THIỆU -->
         <div class="story-left-box">
           <h2>Giới thiệu</h2>
           <div id="desc" class="story-description-text">
@@ -48,60 +69,711 @@
           </div>
           <span id="toggleDesc" class="read-more" style="cursor: pointer; color: #2ecc71; font-weight: 600;">Xem thêm</span>
 
+          <!-- BÌNH LUẬN -->
           <div class="comment-section">
             <h2>Bình luận</h2>
             {% if user.is_authenticated %}
-            <form method="post" class="comment-box">
+            <form id="commentForm" class="comment-box">
               {% csrf_token %}
-              <textarea name="noi_dung" placeholder="Nhập bình luận..."></textarea>
+              <textarea id="commentInput" name="noi_dung" placeholder="Nhập bình luận..."></textarea>
               <button type="submit" class="btn-primary" style="margin-top: 10px; border: none; cursor: pointer;">Gửi</button>
             </form>
             {% else %}
-            <p class="muted-text">Vui lòng đăng nhập để bình luận.</p>
+            <p class="muted-text">Vui lòng <a href="#" onclick="document.getElementById('openAuth').click(); return false;">đăng nhập</a> để bình luận.</p>
             {% endif %}
+            
+            <!-- DANH SÁCH BÌNH LUẬN -->
+            <div id="commentsList" class="comments-list">
+              <p class="loading-text">Đang tải bình luận...</p>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- SIDEBAR PHẢI -->
       <aside class="story-right">
-        
         <div class="translator-card">
           <div class="translator-header">
             <div class="translator-avatar"></div>
-            <div class="translator-name">Chưa có thông tin người dịch</div>
+            <div class="translator-name">
+                {% if truyen.author %}
+                    Đăng bởi: {{ truyen.author.username }}
+                {% else %}
+                    Chưa có thông tin người dịch
+                {% endif %}
+            </div>
           </div>
         </div>
 
         <div class="sidebar-box">
-          <h4 class="sidebar-title">Danh sách chương</h4>
-          <ul class="chapter-list">
-            {% for c in chuongs %}
-            <li>
-              <a href="#">
-                Chương {{ c.so_chuong }}: {{ c.ten }}
-              </a>
-            </li>
-            {% empty %}
-            <li class="muted-text" style="padding: 10px 0;">Chưa có chương</li>
-            {% endfor %}
-          </ul>
-        </div>
+          <h4 class="sidebar-title">Mục lục</h4>
+          <div class="volume-navigation" style="max-height: 800px; overflow-y: auto;">
+            {% for volume in volumes %}
+            <div class="volume-group" style="margin-bottom: 20px;">
+              <div class="volume-label" style="font-weight: 700; font-size: 0.95rem; padding: 8px 0; border-bottom: 2px solid #f0f0f0; margin-bottom: 8px; color: #333;">
+                Vol {{ volume.so_volume }}
+                {% if volume.ten and volume.ten != volume.so_volume|stringformat:"s" and volume.ten != "Vol " %}
+                    {% if "Vol" not in volume.ten %} - {{ volume.ten }}{% else %} - {{ volume.ten|cut:"Vol "|cut:"Vol" }}{% endif %}
+                {% endif %}
+              </div>
 
+              <ul class="chapter-list" style="list-style: none; padding: 0; margin: 0;">
+                {% for c in volume.chuongs.all %}
+                <li style="border-bottom: 1px dotted #eee;">
+                  <a href="{% url 'chuong-detail' truyen.slug c.slug %}" style="display: block; padding: 8px 5px; color: #555; text-decoration: none; font-size: 0.9rem;">
+                    Chương {{ c.so_chuong }}: {{ c.ten }}
+                  </a>
+                </li>
+                {% empty %}
+                <li class="muted-text" style="padding: 5px; font-size: 0.85rem; color: #999;">Chưa có chương</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% empty %}
+            <div class="muted-text" style="padding: 10px 0;">Chưa có tập nào</div>
+            {% endfor %}
+          </div>
+        </div>
       </aside>
-      </div>
+
+    </div>
   </div>
 </div>
 
 <script>
+// CSRF Token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
+const isAuthenticated = '{{ user.is_authenticated }}' === 'True';
+
+// Helper function for star display
+function updateStarDisplay(diem) {
+  const ratingStars = document.getElementById('ratingStars');
+  if (!ratingStars) return;
+  ratingStars.querySelectorAll('.star').forEach((star, idx) => {
+    if (idx < diem) {
+      star.classList.add('active');
+    } else {
+      star.classList.remove('active');
+    }
+  });
+}
+
+function resetStars() {
+  const ratingStars = document.getElementById('ratingStars');
+  if (!ratingStars) return;
+  ratingStars.querySelectorAll('.star').forEach(star => {
+    star.classList.remove('active');
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   const btn = document.getElementById('toggleDesc');
   const desc = document.getElementById('desc');
-  if (!btn || !desc) return;
+  if (btn && desc) {
+    btn.addEventListener('click', function () {
+      desc.classList.toggle('expanded');
+      btn.innerText = desc.classList.contains('expanded') ? 'Thu gọn' : 'Xem thêm';
+    });
+  }
 
-  btn.addEventListener('click', function () {
-    desc.classList.toggle('expanded');
-    btn.innerText = desc.classList.contains('expanded') ? 'Thu gọn' : 'Xem thêm';
-  });
+  // ===== RATING =====
+  const truyen_id = parseInt('{{ truyen.id }}');
+  const ratingStars = document.getElementById('ratingStars');
+  
+  if (ratingStars && isAuthenticated) {
+    // Load user's rating
+    fetch(`/truyen/${truyen_id}/get-rating/`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.diem > 0) {
+          updateStarDisplay(data.diem);
+        }
+      });
+
+    // Handle star click
+    ratingStars.querySelectorAll('.star').forEach(star => {
+      star.addEventListener('click', function() {
+        const diem = this.dataset.value;
+        updateStarDisplay(diem);
+        
+        fetch(`/truyen/${truyen_id}/rating/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({ diem: diem })
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.status === 'success') {
+            document.getElementById('ratingValue').textContent = data.diem_trung_binh;
+            document.getElementById('ratingCount').textContent = data.so_luong;
+          }
+        });
+      });
+
+      // Hover effect
+      star.addEventListener('mouseenter', function() {
+        const diem = this.dataset.value;
+        updateStarDisplay(diem);
+      });
+    });
+
+    ratingStars.addEventListener('mouseleave', function() {
+      fetch(`/truyen/${truyen_id}/get-rating/`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.diem > 0) {
+            updateStarDisplay(data.diem);
+          } else {
+            resetStars();
+          }
+        });
+    });
+  }
+
+  // ===== FOLLOW =====
+  const followBtn = document.getElementById('followBtn');
+  
+  if (followBtn && isAuthenticated) {
+    // Check if following
+    fetch(`/truyen/${truyen_id}/is-following/`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.is_following) {
+          followBtn.classList.add('following');
+          followBtn.textContent = '♥ Bỏ theo dõi';
+        }
+      });
+
+    followBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      fetch(`/truyen/${truyen_id}/follow/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
+        .then(r => r.json())
+        .then(data => {
+          if (data.action === 'followed') {
+            followBtn.classList.add('following');
+            followBtn.textContent = '♥ Bỏ theo dõi';
+          } else {
+            followBtn.classList.remove('following');
+            followBtn.textContent = '♡ Theo dõi';
+          }
+        });
+    });
+  }
+
+  // ===== BÌNH LUẬN =====
+  const commentForm = document.getElementById('commentForm');
+  const commentsList = document.getElementById('commentsList');
+
+  function loadComments() {
+    fetch(`/truyen/${truyen_id}/get-comments/`)
+      .then(r => r.json())
+      .then(data => {
+        commentsList.innerHTML = '';
+        if (data.comments.length === 0) {
+          commentsList.innerHTML = '<p class="muted-text">Chưa có bình luận nào</p>';
+          return;
+        }
+
+        data.comments.forEach(comment => {
+          const commentEl = document.createElement('div');
+          commentEl.className = `comment-item ${comment.is_pinned ? 'pinned' : ''}`;
+          commentEl.innerHTML = `
+            <div class="comment-header">
+              <div class="comment-user-info">
+                <img src="${comment.avatar}" alt="Avatar" class="comment-avatar">
+                <div class="comment-user-details">
+                  <strong>${comment.username}</strong>
+                  <span class="comment-chapter">${comment.chuong_ten}</span>
+                </div>
+              </div>
+              <span class="comment-time">${comment.ngay_tao}${comment.is_edited ? ' (đã sửa)' : ''}</span>
+            </div>
+            ${comment.is_pinned ? '<div class="comment-pinned-badge">📌 Được ghim</div>' : ''}
+            <p class="comment-text">${comment.noi_dung}</p>
+            <div class="comment-actions">
+              <button class="like-btn ${comment.user_liked ? 'liked' : ''}" data-comment-id="${comment.id}">
+                👍 <span>${comment.total_likes}</span>
+              </button>
+              <button class="reply-btn" data-comment-id="${comment.id}">Trả lời</button>
+              ${comment.can_edit ? `<button class="edit-btn" data-comment-id="${comment.id}">✏️ Sửa</button>` : ''}
+              ${comment.can_delete ? `<button class="delete-btn" data-comment-id="${comment.id}">🗑️ Xóa</button>` : ''}
+              ${comment.can_pin ? `<button class="pin-btn ${comment.is_pinned ? 'pinned' : ''}" data-comment-id="${comment.id}">${comment.is_pinned ? '📌 Bỏ ghim' : '📌 Ghim'}</button>` : ''}
+            </div>
+            ${comment.replies.length > 0 ? `
+              <div class="replies-list">
+                ${comment.replies.map(reply => `
+                  <div class="reply-item">
+                    <div class="reply-header">
+                      <img src="${reply.avatar}" alt="Avatar" class="reply-avatar">
+                      <div class="reply-user-info">
+                        <strong>${reply.username}</strong>
+                        <span class="comment-time">${reply.ngay_tao}</span>
+                      </div>
+                    </div>
+                    <p class="reply-text">${reply.noi_dung}</p>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+            <div class="reply-form hidden" data-comment-id="${comment.id}">
+              <textarea placeholder="Trả lời..."></textarea>
+              <button class="submit-reply">Gửi</button>
+              <button class="cancel-reply">Hủy</button>
+            </div>
+          `;
+          commentsList.appendChild(commentEl);
+        });
+
+        // Attach events
+        document.querySelectorAll('.like-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            if (!isAuthenticated) {
+              alert('Vui lòng đăng nhập để thực hiện hành động này');
+              return;
+            }
+            const cid = this.dataset.commentId;
+            fetch(`/comment/${cid}/like/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
+              .then(r => r.json())
+              .then(data => {
+                if (data.status === 'success') {
+                  this.classList.toggle('liked');
+                  this.querySelector('span').textContent = data.total_likes;
+                }
+              });
+          });
+        });
+
+        // Edit button
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const cid = this.dataset.commentId;
+            const commentItem = this.closest('.comment-item');
+            const noi_dung = commentItem.querySelector('.comment-text').textContent;
+            
+            const newText = prompt('Sửa bình luận:', noi_dung);
+            if (newText === null) return;
+            
+            if (!newText.trim()) {
+              alert('Nội dung không được rỗng');
+              return;
+            }
+            
+            fetch(`/comment/${cid}/edit/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+              },
+              body: JSON.stringify({ noi_dung: newText })
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (data.status === 'success') {
+                loadComments();
+              }
+            });
+          });
+        });
+
+        // Delete button
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            if (!confirm('Bạn chắc chắn muốn xóa bình luận này?')) return;
+            
+            const cid = this.dataset.commentId;
+            fetch(`/comment/${cid}/delete/`, {
+              method: 'POST',
+              headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (data.status === 'success') {
+                loadComments();
+              }
+            });
+          });
+        });
+
+        // Pin button
+        document.querySelectorAll('.pin-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const cid = this.dataset.commentId;
+            fetch(`/comment/${cid}/pin/`, {
+              method: 'POST',
+              headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (data.status === 'success') {
+                loadComments();
+              }
+            });
+          });
+        });
+
+        document.querySelectorAll('.reply-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const cid = this.dataset.commentId;
+            document.querySelector(`.reply-form[data-comment-id="${cid}"]`).classList.toggle('hidden');
+          });
+        });
+
+        document.querySelectorAll('.submit-reply').forEach(btn => {
+          btn.addEventListener('click', function() {
+            if (!isAuthenticated) {
+              alert('Vui lòng đăng nhập để trả lời bình luận');
+              return;
+            }
+            const form = this.closest('.reply-form');
+            const cid = form.dataset.commentId;
+            const noi_dung = form.querySelector('textarea').value.trim();
+            
+            if (!noi_dung) {
+              alert('Vui lòng nhập nội dung');
+              return;
+            }
+
+            fetch(`/comment/${cid}/reply/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+              },
+              body: JSON.stringify({ noi_dung: noi_dung })
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (data.status === 'success') {
+                loadComments();
+              }
+            });
+          });
+        });
+
+        document.querySelectorAll('.cancel-reply').forEach(btn => {
+          btn.addEventListener('click', function() {
+            this.closest('.reply-form').classList.add('hidden');
+          });
+        });
+      });
+  }
+
+  if (commentForm) {
+    commentForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (!isAuthenticated) {
+        alert('Vui lòng đăng nhập để bình luận');
+        return;
+      }
+      const noi_dung = document.getElementById('commentInput').value.trim();
+      
+      if (!noi_dung) {
+        alert('Vui lòng nhập bình luận');
+        return;
+      }
+
+      fetch(`/truyen/${truyen_id}/add-comment/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ noi_dung: noi_dung })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success') {
+          document.getElementById('commentInput').value = '';
+          loadComments();
+        }
+      });
+    });
+  }
+
+  // Load comments on page load
+  loadComments();
 });
 </script>
+
+<style>
+/* Rating Styles */
+.story-rating-input {
+  margin: 12px 0;
+}
+
+.stars {
+  display: flex;
+  gap: 8px;
+}
+
+.star {
+  font-size: 24px;
+  cursor: pointer;
+  color: #ddd;
+  transition: color 0.2s;
+}
+
+.star.active {
+  color: #ffc107;
+}
+
+.rating-hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+/* Badge Status */
+.badge-status {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.badge-dang_ra {
+  background: #e0f7fa;
+  color: #00838f;
+}
+
+.badge-hoan_thanh {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-tam_ngung {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+/* Comment Styles */
+.comment-item {
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background: #f9f9f9;
+  position: relative;
+}
+
+.comment-item.pinned {
+  background: #fffbea;
+  border-color: #ffd700;
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.comment-user-info {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.comment-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-top: 2px;
+}
+
+.comment-user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.comment-user-details strong {
+  font-size: 13px;
+}
+
+.comment-chapter {
+  font-size: 11px;
+  color: #666;
+  font-weight: normal;
+}
+
+.comment-time {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+.comment-pinned-badge {
+  font-size: 12px;
+  color: #ff6b35;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.comment-text {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+.comment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.like-btn, .reply-btn, .edit-btn, .delete-btn, .pin-btn {
+  background: transparent;
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.like-btn:hover, .reply-btn:hover, .edit-btn:hover, .delete-btn:hover, .pin-btn:hover {
+  background: #f0f0f0;
+}
+
+.like-btn.liked {
+  background: #ffc107;
+  border-color: #ffc107;
+  color: #fff;
+}
+
+.pin-btn.pinned {
+  background: #ffd700;
+  border-color: #ffd700;
+  color: #333;
+}
+
+.edit-btn {
+  color: #0066cc;
+}
+
+.edit-btn:hover {
+  background: #e3f2fd;
+  border-color: #0066cc;
+}
+
+.delete-btn {
+  color: #ef4444;
+}
+
+.delete-btn:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+.pin-btn {
+  color: #ffd700;
+}
+
+.replies-list {
+  margin-top: 12px;
+  padding-left: 12px;
+  border-left: 2px solid #ddd;
+}
+
+.reply-item {
+  margin-bottom: 8px;
+  padding: 8px;
+  background: #fff;
+  border-radius: 4px;
+  display: flex;
+  gap: 8px;
+}
+
+.reply-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.reply-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reply-user-info {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.reply-header strong {
+  font-size: 12px;
+}
+
+.reply-form {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fff;
+}
+
+.reply-form.hidden {
+  display: none;
+}
+
+.reply-form textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.reply-form button {
+  margin-right: 6px;
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.submit-reply {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.cancel-reply {
+  background: #f0f0f0;
+}
+
+#followBtn.following {
+  background: #ef4444;
+  color: white;
+}
+</style>
 
 {% endblock %}

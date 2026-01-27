@@ -15,10 +15,10 @@
 
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
-
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
-  <link rel="stylesheet" href="{% static 'css/login.css' %}">
-
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+ 
+{% block extra_css %}{% endblock %}
 </head>
 
 
@@ -43,20 +43,15 @@
 
 
 
-      <form class="search-form" method="get" action="">
+      <form class="search-form" method="get" action="{% url 'search' %}">
 
         <input
 
           type="text"
-
           name="q"
-
           placeholder="Tìm kiếm truyện..."
-
           autocomplete="off"
-
         >
-
       </form>
 
 
@@ -65,51 +60,108 @@
 
         <div class="icons">
 
-
-
-          <a class="icon heart" href="#" aria-label="Yêu thích">
-
+          <a class="icon heart" href="{% url 'bookmarks' %}" aria-label="Theo dõi">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
-
               2 5.42 4.42 3 7.5 3c1.74 0 3.41.81
-
               4.5 2.09C13.09 3.81 14.76 3 16.5 3
-
               19.58 3 22 5.42 22 8.5
-
               c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-
             </svg>
-
+            <span class="notification-badge" id="followNotificationCount" style="display: none;">0</span>
           </a>
 
+          <!-- Follow Notifications Dropdown -->
+          <div class="notification-dropdown" id="followNotificationDropdown" style="display: none;">
+            <div class="notification-list" id="followNotificationList">
+              <p style="text-align: center; color: #999; padding: 12px;">Đang tải...</p>
+            </div>
+          </div>
 
-
-          <a class="icon bell" href="#" aria-label="Thông báo">
-
+          <button class="icon bell" id="notificationBell" aria-label="Thông báo">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-
               <path d="M12 22a2 2 0 0 0 2-2h-4
-
               a2 2 0 0 0 2 2zm6-6V11
-
               a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z"/>
-
             </svg>
+            <span class="notification-badge" id="notificationCount" style="display: none;">0</span>
+          </button>
 
-          </a>
+          <!-- Notification Dropdown -->
+          <div class="notification-dropdown" id="notificationDropdown" style="display: none;">
+            <div class="notification-list" id="notificationList">
+              <p style="text-align: center; color: #999; padding: 12px;">Đang tải...</p>
+            </div>
+          </div>
+
+
 
 
 
         </div>
 
         {% if user.is_authenticated %}
-          <div class="user-menu">
-            <span class="user-name">{{ user.username }}</span>
-            <a href="{% url 'logout' %}" class="logout-btn">Đăng xuất</a>
-          </div>
+          <div class="account-dropdown" id="accountDropdown">
+  <button class="account-trigger" id="accountTrigger" aria-haspopup="true">
+    <img
+      src="{% static 'img/avatar.jpg' %}"
+      alt="Avatar"
+      class="account-avatar"
+    >
+  </button>
+
+  <div class="dropdown-menu" id="dropdownMenu">
+    <div class="dropdown-header">
+      {{ user.username }}
+    </div>
+
+    <ul class="dropdown-list">
+      <li>
+        <a href="{% url 'profile-detail' %}">
+          <span class="icon">👤</span>
+          Hồ sơ
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'profile' %}">
+          <span class="icon">📚</span>
+          Truyện của tôi
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'lich-su-doc' %}">
+          <span class="icon">📜</span>
+          Lịch sử
+        </a>
+      </li>
+      <li>
+        <a href="#">
+          <span class="icon">🔖</span>
+          Đánh dấu
+        </a>
+      </li>
+    </ul>
+
+    <div class="dropdown-divider"></div>
+
+    <div class="dropdown-item toggle-theme">
+      <span class="icon">🌙</span>
+      <span>Nền tối</span>
+      <label class="switch">
+        <input type="checkbox" id="darkModeToggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="dropdown-divider"></div>
+
+    <a href="{% url 'logout' %}" class="dropdown-item danger">
+      <span class="icon">🚪</span>
+      Đăng xuất
+    </a>
+  </div>
+</div>
+
         {% else %}
           <button class="login-btn" id="openAuth">Đăng nhập</button>
         {% endif %}
@@ -283,7 +335,9 @@
   </div>
 
 <script src="{% static 'js/script.js' %}"></script>
-<script src="{% static 'img/login.js' %}"></script>
+<script src="{% static 'js/login.js' %}"></script>
+<script src="{% static 'js/base.js' %}"></script>
+{% block extra_js %}{% endblock %}
 
 </body>
 

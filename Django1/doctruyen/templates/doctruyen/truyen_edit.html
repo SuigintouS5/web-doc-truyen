@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Chỉnh sửa truyện{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/truyen_form.css' %}">
+<link rel="stylesheet" href="{% static 'css/volume_chapter.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="add-story-container">
+
+  <!-- FORM GIỐNG HỆT THÊM TRUYỆN -->
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    {% block truyen_title %}Chỉnh sửa truyện{% endblock %}
+    {% include "doctruyen/truyen_form.html" %}
+
+    <button type="submit" class="submit-btn">
+      Lưu thay đổi
+    </button>
+  </form>
+
+  <!-- KÉO XUỐNG MỚI THẤY -->
+  <div class="volume-section">
+    {% include "doctruyen/volume_chapter_manager.html" %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/themtruyen.js' %}"></script>
+<script src="{% static 'js/truyen_edit.js' %}"></script>
+{% endblock %}

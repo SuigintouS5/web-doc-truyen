@@ -1,10 +1,8 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
 <div class="container-layout">
 
-  <!-- ===== TRUYỆN NỔI BẬT ===== -->
   <section class="story-section">
     <div class="section-header">
       <h2 class="section-title">TRUYỆN NỔI BẬT</h2>
@@ -14,11 +12,7 @@
       {% for t in ds|slice:":6" %}
       <a href="{{ t.get_absolute_url }}" class="story-card">
         <div class="card-thumb">
-          {% if t.anh %}
-            <img src="{{ t.anh.url }}" alt="{{ t.ten }}" loading="lazy">
-          {% else %}
-            <div class="no-img"></div>
-          {% endif %}
+          <img src="{{ t.get_anh_url }}" alt="{{ t.ten }}" loading="lazy">
 
           <div class="card-overlay"></div>
 
@@ -40,7 +34,6 @@
 
   <hr class="section-divider">
 
-  <!-- ===== MỚI CẬP NHẬT ===== -->
   <section class="story-section">
     <div class="section-header">
       <h2 class="section-title">MỚI CẬP NHẬT</h2>
@@ -50,11 +43,7 @@
       {% for t in ds %}
       <a href="{{ t.get_absolute_url }}" class="story-card">
         <div class="card-thumb">
-          {% if t.anh %}
-            <img src="{{ t.anh.url }}" alt="{{ t.ten }}" loading="lazy">
-          {% else %}
-            <div class="no-img"></div>
-          {% endif %}
+          <img src="{{ t.get_anh_url }}" alt="{{ t.ten }}" loading="lazy">
 
           <div class="card-overlay"></div>
 
@@ -77,5 +66,4 @@
   </section>
 
 </div>
-
 {% endblock %}

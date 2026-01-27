@@ -1,0 +1,412 @@
+/* =========================
+   BASE TEMPLATE STYLES
+========================= */
+
+/* Notification Styles */
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    width: 320px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1001;
+    margin-top: 8px;
+}
+
+.notification-list {
+    padding: 0;
+}
+
+.notification-item-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+}
+
+.notification-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.notification-item:hover {
+    background: #f9f9f9;
+}
+
+.notification-item.unread {
+    background: #f0f8ff;
+}
+
+.notification-item.unread::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.notification-item-text {
+    font-size: 13px;
+    color: #111;
+    line-height: 1.4;
+}
+
+.notification-item-time {
+    font-size: 11px;
+    color: #999;
+    margin-top: 4px;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    min-width: 300px;
+    animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast-success {
+    border-left: 4px solid #10b981;
+}
+
+.toast-error {
+    border-left: 4px solid #ef4444;
+}
+
+.toast-warning {
+    border-left: 4px solid #f59e0b;
+}
+
+.toast-info {
+    border-left: 4px solid #3b82f6;
+}
+
+.toast-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.toast-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.toast-text {
+    font-size: 14px;
+    flex: 1;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 20px;
+    padding: 0;
+    margin-left: 12px;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    color: #111;
+}
+
+/* Auth Modal */
+.auth-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-overlay.active {
+    display: flex;
+}
+
+.auth-modal {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    width: 90%;
+    max-width: 400px;
+    position: relative;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.auth-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #999;
+}
+
+.auth-close:hover {
+    color: #111;
+}
+
+.auth-header {
+    text-align: center;
+    padding: 32px 24px 24px;
+}
+
+.auth-logo {
+    margin-bottom: 16px;
+}
+
+.auth-header h2 {
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.auth-header p {
+    color: #666;
+    font-size: 14px;
+}
+
+.auth-form {
+    display: none;
+    padding: 24px;
+}
+
+.auth-form.active {
+    display: block;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #111;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #111;
+    box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.1);
+}
+
+.form-error {
+    color: #ef4444;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.btn-submit {
+    width: 100%;
+    padding: 12px;
+    background: #111;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 16px;
+}
+
+.btn-submit:hover {
+    background: #2a2a2a;
+}
+
+.auth-toggle {
+    text-align: center;
+    padding: 0 24px 24px;
+    color: #666;
+    font-size: 13px;
+}
+
+.auth-toggle button {
+    background: none;
+    border: none;
+    color: #111;
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.auth-toggle button:hover {
+    color: #2a2a2a;
+}
+
+/* Account Dropdown */
+.account-dropdown {
+    position: relative;
+}
+
+.account-trigger {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+}
+
+.account-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    z-index: 1001;
+    margin-top: 8px;
+}
+
+.dropdown-menu.active {
+    display: block;
+}
+
+.dropdown-header {
+    padding: 12px 16px;
+    font-weight: 600;
+    border-bottom: 1px solid #e5e7eb;
+    color: #111;
+}
+
+.dropdown-list {
+    list-style: none;
+}
+
+.dropdown-list a {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    color: #111;
+    text-decoration: none;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+
+.dropdown-list a .icon {
+    margin-right: 12px;
+    font-size: 16px;
+}
+
+.dropdown-list a:hover {
+    background: #f0f0f0;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 8px 0;
+}
+
+.dropdown-item {
+    padding: 10px 16px;
+    color: #111;
+    text-decoration: none;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+    background: #f0f0f0;
+}
+
+.dropdown-item.danger {
+    color: #ef4444;
+}
+
+.dropdown-item.danger:hover {
+    background: #fef2f2;
+}

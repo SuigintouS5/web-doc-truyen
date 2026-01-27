@@ -42,6 +42,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 1000;
+  overflow: visible
 }
 
 
@@ -51,6 +52,7 @@ body {
   justify-content: space-between;
   height: 64px;
   gap: 20px;
+  overflow: visible
 }
 
 
@@ -640,4 +642,261 @@ body {
   color: #2ecc71;
   font-weight: 600;
   font-size: 14px;
+}
+
+/* ================= ACCOUNT DROPDOWN ================= */
+
+.account-dropdown {
+  position: relative;
+}
+
+.account-trigger {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.account-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Dropdown box */
+.dropdown-menu {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  min-width: 220px;
+  background: var(--bg-color, #fff);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  display: none;
+  z-index: 1000;
+}
+
+.dropdown-menu.active {
+  display: block;
+}
+
+/* Header */
+.dropdown-header {
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* List */
+.dropdown-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dropdown-list a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dropdown-list a:hover {
+  background: rgba(0,0,0,.04);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(0,0,0,.08);
+  margin: 6px 0;
+}
+
+/* Items */
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dropdown-item:hover {
+  background: rgba(0,0,0,.04);
+}
+
+.dropdown-item.danger {
+  color: #d33;
+}
+
+/* Switch */
+.switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+}
+
+.switch input {
+  display: none;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.2);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.slider::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  top: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(16px);
+}
+
+.account-dropdown {
+  position: relative;
+  z-index: 2000;
+}
+
+/* ================= FIX ACCOUNT DROPDOWN (SAFE) ================= */
+
+/* đảm bảo khu vực avatar không bị header che */
+.header-actions {
+  position: relative;
+  z-index: 2000;
+}
+
+/* đảm bảo dropdown luôn nổi trên mọi layer */
+.dropdown-menu {
+  z-index: 3000;
+  top: calc(100% + 8px);
+}
+
+/* ================= ACCOUNT DROPDOWN FIX ================= */
+
+/* đảm bảo cụm avatar + dropdown nổi trên header */
+.header-actions {
+  position: relative;
+  z-index: 2000;
+}
+
+/* dropdown luôn nổi trên mọi layer */
+.dropdown-menu {
+  z-index: 3000;
+  top: calc(100% + 8px);
+}
+
+.account-avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e5e7eb;
+    display: block; /* Đảm bảo không bị ẩn */
+}
+
+.account-trigger {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+/* Notification Styles */
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    width: 320px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1001;
+    margin-top: 8px;
+}
+
+.notification-list {
+    padding: 0;
+}
+
+.notification-item-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+}
+
+.notification-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.notification-item:hover {
+    background: #f9f9f9;
+}
+
+.notification-item.unread {
+    background: #f0f8ff;
+}
+
+.notification-item.unread::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.notification-item-text {
+    font-size: 13px;
+    color: #111;
+    line-height: 1.4;
+}
+
+.notification-item-time {
+    font-size: 11px;
+    color: #999;
+    margin-top: 4px;
 }
