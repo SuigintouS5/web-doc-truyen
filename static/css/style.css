@@ -1,0 +1,902 @@
+/* =========================
+   RESET & BASE
+========================= */
+
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+
+body {
+  background-color: #EFF2EB;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #111;
+}
+
+
+/* =========================
+   CONTAINER
+========================= */
+
+
+.container-layout {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+
+/* =========================
+   HEADER (GIỮ NGUYÊN)
+========================= */
+
+
+.site-header {
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  overflow: visible
+}
+
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  gap: 20px;
+  overflow: visible
+}
+
+
+.logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+  border-radius: 50%;
+  border: 2px solid #333;
+}
+
+
+.logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+
+.search-form {
+  flex: 1;
+  max-width: 500px;
+}
+
+
+.search-form input {
+  width: 100%;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f4f4f5;
+  font-size: 14px;
+}
+
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+
+.icons {
+  display: flex;
+  gap: 12px;
+}
+
+
+.icons .icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+
+.icons svg {
+  width: 20px;
+  height: 20px;
+  fill: #111;
+}
+
+
+.login-btn {
+  height: 40px;
+  padding: 0 20px;
+  background: #111;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border: none;
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111;
+}
+
+.logout-btn {
+  height: 40px;
+  padding: 0 20px;
+  background: #ef4444;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.logout-btn:hover {
+  background: #dc2626;
+}
+
+/* =========================
+   TOAST NOTIFICATIONS
+========================= */
+
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out;
+  min-width: 300px;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast-success {
+  background: #10b981;
+  color: #fff;
+}
+
+.toast-error {
+  background: #ef4444;
+  color: #fff;
+}
+
+.toast-warning {
+  background: #f59e0b;
+  color: #fff;
+}
+
+.toast-info {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.toast-icon {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.toast-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 12px;
+  transition: opacity 0.2s;
+}
+
+.toast-close:hover {
+  opacity: 0.7;
+}
+
+/* =========================
+   STORY LIST
+========================= */
+
+
+.story-section {
+  margin-bottom: 40px;
+}
+
+
+.section-title {
+  background: #333;
+  color: #fff;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-block;
+}
+
+
+.story-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+
+.story-card {
+  text-decoration: none;
+  color: inherit;
+}
+
+
+.card-thumb {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #ddd;
+}
+
+
+.card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.7), transparent);
+}
+
+
+.card-info {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  color: #fff;
+  font-size: 12px;
+}
+
+
+.story-title {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+
+/* =========================
+   STORY DETAIL (SAFE SCOPE)
+========================= */
+
+
+.story-detail-page .story-detail-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+
+/* TOP */
+
+
+.story-detail-page .story-header-flex {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 32px;
+}
+
+
+.story-detail-page .story-cover-wrapper {
+  width: 240px;
+  aspect-ratio: 2 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 10px 30px rgba(0,0,0,.15);
+}
+
+
+.story-detail-page .story-cover-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+
+.story-detail-page .story-main-info {
+  flex: 1;
+}
+
+
+.story-detail-page .story-title-detail {
+  font-size: 30px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+
+.story-detail-page .story-author {
+  color: #555;
+  margin-bottom: 12px;
+}
+
+
+.story-detail-page .badge-green {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(46,204,113,.15);
+  color: #2ecc71;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* =========================
+   GENRES (FINAL)
+========================= */
+
+
+.story-detail-page .story-genres {
+  margin: 18px 0;
+}
+
+
+.story-detail-page .genres-container {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+
+.story-detail-page .genre-tag {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111;
+  text-decoration: none;
+  border: 1.5px solid #111;
+  transition: all 0.2s ease;
+}
+
+
+.story-detail-page .genre-tag:hover {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+
+/* ACTION */
+
+
+.story-detail-page .story-actions {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+
+.story-detail-page .btn-primary {
+  background: #111;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+
+.story-detail-page .btn-outline {
+  border: 1px solid #ffffff;
+  color: #ffffff;
+  background: #111;
+  padding: 10px 18px;
+  border-radius: 999px;
+}
+
+
+/* MAIN GRID */
+
+
+.story-detail-page .story-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 360px;
+  gap: 36px;
+  align-items: stretch;
+}
+
+
+/* =========================
+   RIGHT SIDEBAR (FIXED)
+========================= */
+
+
+.story-detail-page .story-right {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-self: stretch;
+}
+
+
+/* ===== SIDEBAR BOX (CHAPTER LIST) ===== */
+
+
+.sidebar-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.06);
+}
+
+
+.sidebar-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+
+/* Chapter list spacing */
+.chapter-list li a {
+  padding: 10px 0;
+  display: block;
+}
+
+
+
+
+/* COMMENTS */
+
+
+.story-detail-page .comment-section {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid #ccc;
+}
+
+
+.story-detail-page textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
+
+
+/* =========================
+   MOBILE
+========================= */
+
+
+@media (max-width: 900px) {
+  .story-detail-page .story-header-flex {
+    flex-direction: column;
+    text-align: center;
+  }
+
+
+  .story-detail-page .story-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+
+  .story-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+.story-left-box {
+  background: rgba(255,255,255,0.85);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+}
+
+
+.story-left-box h2 {
+  margin-bottom: 12px;
+}
+
+
+
+/* ===== TRANSLATOR CARD (EMPTY) ===== */
+.translator-card {
+  background: #fff;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.06);
+  overflow: hidden;
+}
+
+
+/* Header */
+.translator-header {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Avatar (JS sẽ gán background-image) */
+.translator-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #e5e7eb;
+  flex-shrink: 0;
+}
+
+/* Name (JS sẽ fill) */
+.translator-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: #111;
+}
+
+
+
+.story-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 40px;
+  align-items: stretch; /* ⭐ QUAN TRỌNG */
+}
+
+
+.story-right {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Giới hạn chiều cao ban đầu */
+.story-description-text {
+  max-height: 40px; /* Độ cao khi chưa mở rộng */
+  overflow: hidden;
+  position: relative;
+  transition: max-height 0.3s ease-out;
+}
+
+/* Khi bấm "Xem thêm" sẽ gỡ bỏ giới hạn chiều cao */
+.story-description-text.expanded {
+  max-height: 2000px; /* Đặt một con số đủ lớn */
+}
+
+/* Nút xem thêm */
+.read-more {
+  display: inline-block;
+  margin-top: 10px;
+  cursor: pointer;
+  color: #2ecc71;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* ================= ACCOUNT DROPDOWN ================= */
+
+.account-dropdown {
+  position: relative;
+}
+
+.account-trigger {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.account-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Dropdown box */
+.dropdown-menu {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  min-width: 220px;
+  background: var(--bg-color, #fff);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  display: none;
+  z-index: 1000;
+}
+
+.dropdown-menu.active {
+  display: block;
+}
+
+/* Header */
+.dropdown-header {
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* List */
+.dropdown-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dropdown-list a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dropdown-list a:hover {
+  background: rgba(0,0,0,.04);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(0,0,0,.08);
+  margin: 6px 0;
+}
+
+/* Items */
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dropdown-item:hover {
+  background: rgba(0,0,0,.04);
+}
+
+.dropdown-item.danger {
+  color: #d33;
+}
+
+/* Switch */
+.switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+}
+
+.switch input {
+  display: none;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.2);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.slider::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  top: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(16px);
+}
+
+.account-dropdown {
+  position: relative;
+  z-index: 2000;
+}
+
+/* ================= FIX ACCOUNT DROPDOWN (SAFE) ================= */
+
+/* đảm bảo khu vực avatar không bị header che */
+.header-actions {
+  position: relative;
+  z-index: 2000;
+}
+
+/* đảm bảo dropdown luôn nổi trên mọi layer */
+.dropdown-menu {
+  z-index: 3000;
+  top: calc(100% + 8px);
+}
+
+/* ================= ACCOUNT DROPDOWN FIX ================= */
+
+/* đảm bảo cụm avatar + dropdown nổi trên header */
+.header-actions {
+  position: relative;
+  z-index: 2000;
+}
+
+/* dropdown luôn nổi trên mọi layer */
+.dropdown-menu {
+  z-index: 3000;
+  top: calc(100% + 8px);
+}
+
+.account-avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e5e7eb;
+    display: block; /* Đảm bảo không bị ẩn */
+}
+
+.account-trigger {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+/* Notification Styles */
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    width: 320px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1001;
+    margin-top: 8px;
+}
+
+.notification-list {
+    padding: 0;
+}
+
+.notification-item-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+}
+
+.notification-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.notification-item:hover {
+    background: #f9f9f9;
+}
+
+.notification-item.unread {
+    background: #f0f8ff;
+}
+
+.notification-item.unread::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.notification-item-text {
+    font-size: 13px;
+    color: #111;
+    line-height: 1.4;
+}
+
+.notification-item-time {
+    font-size: 11px;
+    color: #999;
+    margin-top: 4px;
+}

@@ -1,0 +1,342 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Hồ sơ cá nhân{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/profile-detail.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="profile-detail-container container-layout">
+    
+    <!-- Header -->
+    <div class="profile-detail-header">
+        <h1>Hồ sơ cá nhân</h1>
+        <a href="{% url 'profile' %}" class="btn-back">← Quay lại</a>
+    </div>
+
+    <!-- Thông tin chính -->
+    <div class="profile-info-card">
+        <div class="info-section">
+            <h2>Thông tin tài khoản</h2>
+            
+            <!-- Username -->
+            <div class="info-item">
+                <label class="info-label">Tên đăng nhập</label>
+                <div class="info-value">
+                    <span id="username-display">{{ user.username }}</span>
+                </div>
+            </div>
+
+            <!-- Email -->
+            <div class="info-item">
+                <label class="info-label">Email</label>
+                <div class="info-value">
+                    <span id="email-display">{{ user.email }}</span>
+                </div>
+            </div>
+
+            <!-- Password (always masked) -->
+            <div class="info-item">
+                <label class="info-label">Mật khẩu</label>
+                <div class="info-value">
+                    <span id="password-display">••••••••</span>
+                </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="info-actions">
+                <button class="btn btn-primary" id="editProfileBtn">Sửa</button>
+                <button class="btn btn-secondary" id="changePasswordBtn">Đổi mật khẩu</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ============================================
+     MODAL: SỬA THÔNG TIN
+     ============================================ -->
+<div class="modal-overlay" id="editProfileModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Sửa thông tin</h2>
+            <button class="modal-close" id="closeEditModal">×</button>
+        </div>
+        
+        <form id="editProfileForm" class="modal-form">
+            <div class="form-group">
+                <label for="editUsername">Tên đăng nhập</label>
+                <input type="text" id="editUsername" name="username" required>
+                <span class="error-msg" id="error-username"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="editEmail">Email</label>
+                <input type="email" id="editEmail" name="email" required>
+                <span class="error-msg" id="error-email"></span>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="cancelEditBtn">Hủy</button>
+                <button type="submit" class="btn btn-primary">Lưu</button>
+            </div>
+        </form>
+
+        <div class="form-message" id="editMessage"></div>
+    </div>
+</div>
+
+<!-- ============================================
+     MODAL: ĐỔI MẬT KHẨU
+     ============================================ -->
+<div class="modal-overlay" id="changePasswordModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Đổi mật khẩu</h2>
+            <button class="modal-close" id="closePasswordModal">×</button>
+        </div>
+        
+        <form id="changePasswordForm" class="modal-form">
+            <div class="form-group">
+                <label for="oldPassword">Mật khẩu cũ</label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="oldPassword" name="old_password" required>
+                    <span class="toggle-password" data-target="oldPassword">👁</span>
+                </div>
+                <span class="error-msg" id="error-old_password"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="newPassword">Mật khẩu mới</label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="newPassword" name="new_password" required>
+                    <span class="toggle-password" data-target="newPassword">👁</span>
+                </div>
+                <span class="error-msg" id="error-new_password"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Nhập lại mật khẩu mới</label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="confirmPassword" name="confirm_password" required>
+                    <span class="toggle-password" data-target="confirmPassword">👁</span>
+                </div>
+                <span class="error-msg" id="error-confirm_password"></span>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" id="cancelPasswordBtn">Hủy</button>
+                <button type="submit" class="btn btn-primary">Lưu</button>
+            </div>
+        </form>
+
+        <div class="form-message" id="passwordMessage"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // CSRF Token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                     getCookie('csrftoken');
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // ===== MODAL CONTROL =====
+    const editProfileModal = document.getElementById('editProfileModal');
+    const changePasswordModal = document.getElementById('changePasswordModal');
+
+    const editProfileBtn = document.getElementById('editProfileBtn');
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    const closeEditModal = document.getElementById('closeEditModal');
+    const closePasswordModal = document.getElementById('closePasswordModal');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const cancelPasswordBtn = document.getElementById('cancelPasswordBtn');
+
+    // Mở modal sửa thông tin
+    editProfileBtn.addEventListener('click', () => {
+        document.getElementById('editUsername').value = '{{ user.username }}';
+        document.getElementById('editEmail').value = '{{ user.email }}';
+        clearErrors('editProfile');
+        editProfileModal.style.display = 'flex';
+    });
+
+    // Mở modal đổi mật khẩu
+    changePasswordBtn.addEventListener('click', () => {
+        document.getElementById('changePasswordForm').reset();
+        clearErrors('changePassword');
+        changePasswordModal.style.display = 'flex';
+    });
+
+    // Đóng modal
+    [closeEditModal, cancelEditBtn].forEach(btn => {
+        btn.addEventListener('click', () => {
+            editProfileModal.style.display = 'none';
+        });
+    });
+
+    [closePasswordModal, cancelPasswordBtn].forEach(btn => {
+        btn.addEventListener('click', () => {
+            changePasswordModal.style.display = 'none';
+        });
+    });
+
+    // Đóng modal khi click bên ngoài
+    [editProfileModal, changePasswordModal].forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+
+    // ===== PASSWORD TOGGLE =====
+    document.querySelectorAll('.toggle-password').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            const inputId = toggle.getAttribute('data-target');
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                toggle.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                toggle.textContent = '👁';
+            }
+        });
+    });
+
+    // ===== FORM SUBMISSION =====
+    
+    // Sửa thông tin
+    document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearErrors('editProfile');
+        
+        const username = document.getElementById('editUsername').value.trim();
+        const email = document.getElementById('editEmail').value.trim();
+        
+        try {
+            const response = await fetch('{% url "update-profile-ajax" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    username: username,
+                    email: email
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                showMessage('editMessage', data.message, 'success');
+                // Update display
+                document.getElementById('username-display').textContent = username;
+                document.getElementById('email-display').textContent = email;
+                setTimeout(() => {
+                    editProfileModal.style.display = 'none';
+                }, 1500);
+            } else {
+                if (data.errors) {
+                    showErrors('editProfile', data.errors);
+                } else {
+                    showMessage('editMessage', data.message || 'Lỗi cập nhật', 'error');
+                }
+            }
+        } catch (error) {
+            showMessage('editMessage', 'Lỗi kết nối: ' + error.message, 'error');
+        }
+    });
+
+    // Đổi mật khẩu
+    document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearErrors('changePassword');
+        
+        const oldPassword = document.getElementById('oldPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        try {
+            const response = await fetch('{% url "change-password-ajax" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    old_password: oldPassword,
+                    new_password: newPassword,
+                    confirm_password: confirmPassword
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                showMessage('passwordMessage', data.message, 'success');
+                setTimeout(() => {
+                    changePasswordModal.style.display = 'none';
+                }, 1500);
+            } else {
+                if (data.errors) {
+                    showErrors('changePassword', data.errors);
+                } else {
+                    showMessage('passwordMessage', data.message || 'Lỗi đổi mật khẩu', 'error');
+                }
+            }
+        } catch (error) {
+            showMessage('passwordMessage', 'Lỗi kết nối: ' + error.message, 'error');
+        }
+    });
+
+    // ===== HELPER FUNCTIONS =====
+    
+    function showMessage(elementId, message, type) {
+        const messageEl = document.getElementById(elementId);
+        messageEl.textContent = message;
+        messageEl.className = 'form-message ' + type;
+        messageEl.style.display = 'block';
+    }
+
+    function showErrors(formType, errors) {
+        for (const [field, message] of Object.entries(errors)) {
+            const errorEl = document.getElementById(`error-${field}`);
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.style.display = 'block';
+            }
+        }
+    }
+
+    function clearErrors(formType) {
+        document.querySelectorAll('.error-msg').forEach(el => {
+            el.textContent = '';
+            el.style.display = 'none';
+        });
+        document.querySelectorAll('.form-message').forEach(el => {
+            el.textContent = '';
+            el.style.display = 'none';
+        });
+    }
+</script>
+{% endblock %}
