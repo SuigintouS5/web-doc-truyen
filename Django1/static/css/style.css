@@ -900,3 +900,10 @@ body {
     color: #999;
     margin-top: 4px;
 }
+
+.icons .icon {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
