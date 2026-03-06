@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ chuong.ten }} - {{ truyen.ten }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chuong_detail.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="reader-container" id="reader-container">
+    <aside class="reader-toolbar">
+        {% if prev_chuong %}
+            <a href="{% url 'chuong-detail' truyen.slug prev_chuong.slug %}" class="nav-btn"><i class="fas fa-chevron-left"></i></a>
+        {% else %}
+            <button class="nav-btn disabled"><i class="fas fa-chevron-left"></i></button>
+        {% endif %}
+
+        <a href="{{ truyen.get_absolute_url }}" class="nav-btn"><i class="fas fa-home"></i></a>
+        <button id="btn-settings" class="nav-btn"><i class="fas fa-font"></i></button>
+        <button id="btn-toc" class="nav-btn"><i class="fas fa-info"></i></button>
+        <button id="btn-bookmark" class="nav-btn"><i class="fas fa-bookmark"></i></button>
+
+        {% if next_chuong %}
+            <a href="{% url 'chuong-detail' truyen.slug next_chuong.slug %}" class="nav-btn"><i class="fas fa-chevron-right"></i></a>
+        {% else %}
+            <button class="nav-btn disabled"><i class="fas fa-chevron-right"></i></button>
+        {% endif %}
+    </aside>
+
+    <article class="reader-main" id="reader-main">
+        <header class="chapter-header">
+            <h2 class="vol-title">{{ chuong.volume.ten|default:"Tập mới" }}</h2>
+            <h1 class="chuong-title">{{ chuong.ten }}</h1>
+            <div class="chuong-meta">
+                <span><i class="fas fa-comment"></i> {{ chuong.comments.count|default:0 }} Bình luận</span>
+                <span><i class="fas fa-pen-nib"></i> Độ dài: {{ chuong.noi_dung|wordcount }} từ</span>
+                <span><i class="fas fa-clock"></i> Cập nhật: {{ chuong.ngay_dang|timesince }} trước</span>
+            </div>
+        </header>
+
+        <div class="chapter-content" id="chapter-content">
+            {{ chuong.noi_dung|linebreaks }}
+        </div>
+
+        <section class="comment-section-box">
+            <h3 class="box-title"><i class="fas fa-comments"></i> Bình luận</h3>
+            <div class="comment-input-area">
+                <textarea id="comment-text" placeholder="Chia sẻ cảm nghĩ của bạn về chương này..."></textarea>
+                <div class="action-bar">
+                    <button class="btn-send-comment">Gửi bình luận</button>
+                </div>
+            </div>
+            
+            <div class="comments-list">
+                {% for comment in chuong.comments.all %}
+                <div class="comment-item">
+                    <span class="user-name">{{ comment.user.username }}</span>
+                    <p class="comment-body">{{ comment.noi_dung }}</p>
+                </div>
+                {% empty %}
+                <p class="no-comment">Chưa có bình luận nào cho chương này.</p>
+                {% endfor %}
+            </div>
+        </section>
+    </article>
+
+    <div class="settings-panel" id="settings-panel">
+        <div class="panel-header">
+            <h3>Tùy chỉnh</h3>
+            <button id="close-settings">&times;</button>
+        </div>
+        <div class="panel-body">
+            <div class="s-group">
+                <label>Màu nền</label>
+                <div class="color-grid">
+                    <span class="c-dot white" data-bg="#ffffff" data-text="#333"></span>
+                    <span class="c-dot cream" data-bg="#f4f1ea" data-text="#333"></span>
+                    <span class="c-dot sepia" data-bg="#fbf2d5" data-text="#3e2723"></span>
+                    <span class="c-dot dark" data-bg="#222222" data-text="#ccc"></span>
+                    <span class="c-dot black" data-bg="#000000" data-text="#999"></span>
+                </div>
+            </div>
+            <div class="s-group">
+                <label>Cỡ chữ: <b id="fs-label">20px</b></label>
+                <input type="range" id="fs-range" min="16" max="32" value="20" class="slider">
+            </div>
+            <div class="s-group">
+                <label>Font chữ</label>
+                <select id="font-select">
+                    <option value="'Times New Roman', serif">Times New Roman</option>
+                    <option value="'Arial', sans-serif">Arial</option>
+                    <option value="'Roboto', sans-serif">Roboto</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/chuong_detail.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,163 @@
+{% load static %}
+
+<div class="volume-manager">
+    <div class="volume-header-main">
+        <h2>Quản lý Tập & Chương</h2>
+        <div class="header-actions" style="display: flex; gap: 10px;">
+            <button type="button" id="sortVolumeBtn" class="btn-sort-custom">
+                <i class="fas fa-sort-numeric-down"></i> <span>Sắp xếp Tập</span>
+            </button>
+            
+            <button type="button" id="openVolumeModal" class="btn-add-volume">
+                <i class="fas fa-plus"></i> Thêm Tập
+            </button>
+        </div>
+    </div>
+
+    <input type="hidden" id="currentTruyenId" value="{{ truyen.id }}">
+
+    <div class="volume-list">
+        {% for volume in truyen.volumes.all %}
+        <div class="volume-card">
+            <div class="volume-card-header">
+                <div class="volume-info-group">
+                    <span class="toggle-icon">❯</span>
+                    <div class="text-details">
+                        <h3 class="vol-name">
+                            Vol {{ volume.so_volume }}
+                            {% if volume.ten and volume.ten != volume.so_volume|stringformat:"s" and volume.ten != "Vol " %}
+                                {% if "Vol" not in volume.ten %} - {{ volume.ten }}{% else %} - {{ volume.ten|cut:"Vol "|cut:"Vol" }}{% endif %}
+                            {% endif %}
+                        </h3>
+                        <p class="vol-desc text-muted">{{ volume.mo_ta|default:"" }}</p>
+                    </div>
+                </div>
+                <div class="volume-actions">
+                    <button type="button" class="btn-sort-custom btn-sort-chapter" data-volid="{{ volume.id }}">
+                        <i class="fas fa-sort-amount-down"></i> <span>Sắp xếp</span>
+                    </button>
+                    
+                    <button class="btn-action btn-add-chapter" data-volid="{{ volume.id }}">
+                        <i class="fas fa-plus"></i> Thêm chương
+                    </button>
+                    <button class="btn-icon-only btn-edit-volume" data-id="{{ volume.id }}">
+                        <i class="far fa-edit"></i>
+                    </button>
+                    <button class="btn-icon-only danger btn-delete-volume" data-id="{{ volume.id }}" data-name="Vol {{ volume.so_volume }}">
+                        <i class="far fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div> 
+
+            <div class="chapter-content-area hidden">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th width="10%">Số</th>
+                            <th width="40%">Tên chương</th>
+                            <th width="20%">Trạng thái</th>
+                            <th width="30%">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for chuong in volume.chuongs.all %}
+                        <tr>
+                            <td class="text-muted">#{{ chuong.so_chuong }}</td>
+                            <td class="chuong-name">{{ chuong.ten }}</td>
+                            <td><span class="badge badge-success">● Công khai</span></td>
+                            <td>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn-icon-only btn-edit-chapter" data-id="{{ chuong.id }}">
+                                        <i class="far fa-edit"></i>
+                                    </button>
+                                    <button class="btn-icon-only danger btn-delete-chapter" data-id="{{ chuong.id }}" data-name="{{ chuong.ten }}">
+                                        <i class="far fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="empty-state">Chưa có chương nào.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% empty %}
+        <div class="no-data"><p>Chưa có volume nào.</p></div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="volumeModal" class="volume-modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="volume-modal-content">
+        <div class="modal-header"><h3 id="volModalTitle">Thêm Tập mới</h3></div>
+        <div class="modal-body">
+            <div style="margin-bottom: 15px;">
+                <label>Tên Tập</label>
+                <input type="text" id="volumeNameInput" placeholder="Ví dụ: Khởi đầu...">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label>Mô tả</label>
+                <textarea id="volumeDescInput" rows="3"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="closeVolumeModal">Hủy</button>
+            <button id="saveVolumeBtn">Lưu</button>
+        </div>
+    </div>
+</div>
+
+<div id="chapterModal" class="volume-modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="volume-modal-content" style="max-width: 800px; width: 95%;">
+        <div class="modal-header" style="display: flex; justify-content: space-between;">
+            <h3 id="chapterModalTitle">Thêm chương</h3>
+            <span id="closeChapterX" style="cursor:pointer; font-size: 20px;">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 15px;">
+                <label>Số chương</label>
+                <input type="number" id="chapterNoInput">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Tên chương <span style="color:red">*</span></label>
+                <input type="text" id="chapterNameInput" placeholder="Nhập tên chương">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label>Nội dung chương</label>
+                <textarea id="chapterContentInput" rows="15"></textarea>
+                <div id="wordCountDisplay">
+                    Số chữ: <span id="wordCountNumber">0</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="closeChapterBtn">Hủy</button>
+            <button id="saveChapterBtn">Thêm chương</button>
+        </div>
+    </div>
+</div>
+
+<div id="sortModal" class="volume-modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="volume-modal-content">
+        <div class="modal-header">
+            <h3 id="sortModalTitle">Sắp xếp thứ tự</h3>
+        </div>
+        <div class="modal-body">
+            <p style="font-size: 13px; color: #6b7280; margin-bottom: 15px;">Mẹo: Nhấn giữ và kéo các mục để thay đổi vị trí.</p>
+            <ul id="sortableList" style="list-style: none; padding: 0; margin: 0;">
+                </ul>
+        </div>
+        <div class="modal-footer">
+            <button id="closeSortModal">Hủy</button>
+            <button id="saveSortBtn" style="background: #a855f7; color: white; border: none;">Lưu thứ tự</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="{% static 'js/volume-manager.js' %}"></script>

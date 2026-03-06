@@ -1,0 +1,111 @@
+/* ========================================================
+   TRANG LỊCH SỬ - DARK MODE READY (FINAL)
+======================================================== */
+
+/* Container chính */
+.history-container {
+    padding-top: 40px;
+    padding-bottom: 60px;
+    background-color: var(--bg-body); /* Đảm bảo nền khớp với base */
+    min-height: 80vh;
+}
+
+.page-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 30px;
+    /* Chuyển từ #1a1a1a sang biến tự động */
+    color: var(--text-main);
+    transition: color 0.3s ease;
+}
+
+/* Lưới hiển thị 1 dòng nhiều truyện */
+.history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 25px;
+}
+
+/* Thẻ truyện */
+.history-card {
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease;
+}
+
+/* Ảnh bìa bo góc */
+.cover-link {
+    display: block;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    /* Thêm viền mờ để ảnh không bị chìm trong nền quá tối */
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+}
+
+.cover-link img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.history-card:hover .cover-link img {
+    transform: scale(1.05);
+}
+
+/* Thông tin văn bản */
+.history-info .story-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    line-height: 1.4;
+}
+
+.history-info .story-title a {
+    /* Quan trọng: link phải dùng màu biến */
+    color: var(--text-main);
+    text-decoration: none;
+    display: -webkit-box;
+    -webkit-line-clamp: 1; 
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: color 0.2s ease;
+}
+
+.history-info .story-title a:hover {
+    color: #2ecc71; /* Giữ màu nhấn đặc trưng của web */
+}
+
+.history-info .author-name {
+    display: block;
+    font-size: 14px;
+    /* Chuyển từ #777 sang biến xám nhạt */
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.history-info .current-chapter {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.history-info .current-chapter b {
+    /* Chuyển từ #444 sang biến chữ chính */
+    color: var(--text-main);
+}
+
+/* Responsive cho điện thoại */
+@media (max-width: 600px) {
+    .history-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    .page-title {
+        font-size: 20px;
+    }
+}

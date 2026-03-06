@@ -1,0 +1,367 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="story-detail-page">
+  <div class="story-detail-container">
+    <div class="story-detail-layout">
+
+      <div class="story-left">
+        <div class="story-header-flex">
+          <div class="story-cover-wrapper">
+            <img src="{{ truyen.get_anh_url }}" alt="{{ truyen.ten }}">
+          </div>
+
+          <div class="story-main-info">
+            <h1 class="story-title-detail">{{ truyen.ten }}</h1>
+            <p class="story-author">Tác giả: {{ truyen.tac_gia }}</p>
+            
+            <div class="story-rating" id="ratingDisplay">
+              ⭐ <span id="ratingValue">{{ truyen.diem_trung_binh|floatformat:1 }}</span> 
+              (<span id="ratingCount">{{ truyen.so_luong_danh_gia }}</span> đánh giá)
+            </div>
+            
+            {% if user.is_authenticated %}
+            <div class="story-rating-input">
+              <div class="stars" id="ratingStars">
+                {% for i in "12345" %}
+                  <span class="star" data-value="{{ i }}">★</span>
+                {% endfor %}
+              </div>
+              <p class="rating-hint">Click để đánh giá</p>
+            </div>
+            {% endif %}
+            
+            <div class="story-status-row">
+              <span class="badge-custom badge-{{ truyen.trang_thai }}">
+                {{ truyen.get_trang_thai_display }}
+              </span>
+              <span class="badge-custom badge-type">
+                {{ truyen.get_story_type_display }}
+              </span>
+            </div>
+
+            {% if genres %}
+            <div class="story-genres">
+              <h4>Thể loại:</h4>
+              <div class="genres-container">
+                {% for genre in genres %}
+                  <a href="/the-loai/{{ genre.slug }}/" class="genre-tag">
+                    {{ genre.name }}
+                  </a>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+
+            <div class="story-actions">
+              <a href="{% url 'read-now' truyen.slug %}" class="btn-primary" id="readNowBtn">▶ Đọc ngay</a>
+              <button class="btn-outline" id="followBtn">♡ Theo dõi</button>
+              {% if can_edit %}
+              <a href="{% url 'truyen-edit' truyen.slug %}" class="btn-edit-red">Chỉnh sửa</a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="story-left-box">
+          <h2>Giới thiệu</h2>
+          <div id="desc" class="story-description-text">
+            {{ truyen.mo_ta|linebreaks }}
+          </div>
+          <span id="toggleDesc" class="read-more">Xem thêm</span>
+
+          <div class="comment-section">
+            <h2>Bình luận</h2>
+            {% if user.is_authenticated %}
+            <form id="commentForm" class="comment-box">
+              {% csrf_token %}
+              <textarea id="commentInput" name="noi_dung" placeholder="Nhập bình luận..."></textarea>
+              <button type="submit" class="btn-primary" style="margin-top: 10px; border: none; cursor: pointer;">Gửi</button>
+            </form>
+            {% else %}
+            <p class="muted-text">Vui lòng <a href="#" onclick="document.getElementById('openAuth').click(); return false;">đăng nhập</a> để bình luận.</p>
+            {% endif %}
+            
+            <div id="commentsList" class="comments-list">
+              <p class="loading-text">Đang tải bình luận...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="story-right">
+        <div class="translator-card">
+          <div class="translator-header">
+            <div class="translator-avatar-wrapper">
+              {% if truyen.author.profile.avatar %}
+                <img src="{{ truyen.author.profile.avatar.url }}" alt="Avatar" class="translator-avatar-img">
+              {% else %}
+                <img src="{% static 'img/avatar.jpg' %}" alt="Default Avatar" class="translator-avatar-img">
+              {% endif %}
+            </div>
+            
+            <div class="translator-name">
+              <span class="label-posted">Đăng bởi:</span>
+              {% if truyen.author %} 
+                <a href="{% url 'user-profile' truyen.author.username %}" class="user-link">
+                  {{ truyen.author.username }}
+                </a>
+              {% else %} 
+                <span class="user-link">Ẩn danh</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-box">
+          <h4 class="sidebar-title">Mục lục</h4>
+          <div class="volume-navigation">
+            {% for volume in volumes %}
+            <div class="volume-group">
+              <div class="volume-label">
+                Vol {{ volume.so_volume }}
+                {% if volume.ten and volume.ten != volume.so_volume|stringformat:"s" and volume.ten != "Vol " %}
+                    - {{ volume.ten|cut:"Vol "|cut:"Vol" }}
+                {% endif %}
+              </div>
+              <ul class="chapter-list">
+                {% for c in volume.chuongs.all %}
+                <li>
+                  <a href="{% url 'chuong-detail' truyen.slug c.slug %}">
+                    Chương {{ c.so_chuong }}: {{ c.ten }}
+                  </a>
+                </li>
+                {% empty %}
+                <li class="empty-chapter">Chưa có chương</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% empty %}
+            <div class="muted-text">Chưa có tập nào</div>
+            {% endfor %}
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
+const isAuthenticated = '{{ user.is_authenticated }}' === 'True';
+const truyen_id = parseInt('{{ truyen.id }}');
+
+function updateStarDisplay(diem) {
+  const stars = document.querySelectorAll('#ratingStars .star');
+  stars.forEach((star, idx) => {
+    if (idx < diem) { star.classList.add('active'); } 
+    else { star.classList.remove('active'); }
+  });
+}
+
+function initRating() {
+  const ratingStars = document.getElementById('ratingStars');
+  if (!ratingStars || !isAuthenticated) return;
+  fetch(`/truyen/${truyen_id}/get-rating/`)
+    .then(r => r.json())
+    .then(data => { if (data.diem > 0) updateStarDisplay(data.diem); });
+  ratingStars.querySelectorAll('.star').forEach(star => {
+    star.addEventListener('click', function() {
+      const diem = this.dataset.value;
+      fetch(`/truyen/${truyen_id}/rating/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ diem: diem })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success') {
+          document.getElementById('ratingValue').textContent = data.diem_trung_binh;
+          document.getElementById('ratingCount').textContent = data.so_luong;
+          updateStarDisplay(diem);
+        }
+      });
+    });
+    star.addEventListener('mouseenter', function() { updateStarDisplay(this.dataset.value); });
+  });
+  ratingStars.addEventListener('mouseleave', function() {
+    fetch(`/truyen/${truyen_id}/get-rating/`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.diem > 0) updateStarDisplay(data.diem);
+        else document.querySelectorAll('#ratingStars .star').forEach(s => s.classList.remove('active'));
+      });
+  });
+}
+
+function loadComments() {
+  const commentsList = document.getElementById('commentsList');
+  fetch(`/truyen/${truyen_id}/get-comments/`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.comments || data.comments.length === 0) {
+        commentsList.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Chưa có bình luận nào</p>';
+        return;
+      }
+      commentsList.innerHTML = data.comments.map(comment => `
+        <div style="border-bottom: 1px solid #eee; padding: 15px 0;">
+          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <img src="${comment.avatar}" alt="${comment.username}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+            <div style="flex: 1;">
+              <div style="font-weight: 600; font-size: 14px;">${comment.username}</div>
+              <div style="font-size: 12px; color: #999;">${comment.ngay_tao}</div>
+            </div>
+          </div>
+          <div style="font-size: 14px; line-height: 1.5; margin-bottom: 10px;">${comment.noi_dung}</div>
+          <div style="font-size: 12px; color: #999;">👍 ${comment.total_likes}</div>
+        </div>
+      `).join('');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  // Load comments on page load
+  loadComments();
+  
+  // Handle comment form submission
+  const commentForm = document.getElementById('commentForm');
+  if (commentForm) {
+    commentForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const textarea = document.getElementById('commentInput');
+      const content = textarea.value.trim();
+      if (!content) {
+        alert('Vui lòng nhập bình luận');
+        return;
+      }
+      fetch(`/truyen/${truyen_id}/add-comment/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ noi_dung: content })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success') {
+          textarea.value = '';
+          loadComments();
+        } else {
+          alert(data.message || 'Không thể gửi bình luận');
+        }
+      })
+      .catch(err => alert('Lỗi: '+err.message));
+    });
+  }
+
+  const btn = document.getElementById('toggleDesc');
+  const desc = document.getElementById('desc');
+  if (btn && desc) {
+    btn.addEventListener('click', () => {
+      desc.classList.toggle('expanded');
+      btn.innerText = desc.classList.contains('expanded') ? 'Thu gọn' : 'Xem thêm';
+    });
+  }
+  initRating();
+  const followBtn = document.getElementById('followBtn');
+  if (followBtn && isAuthenticated) {
+    fetch(`/truyen/${truyen_id}/is-following/`).then(r => r.json()).then(data => {
+      if (data.is_following) { followBtn.classList.add('following'); followBtn.textContent = '♥ Bỏ theo dõi'; }
+    });
+    followBtn.addEventListener('click', () => {
+      fetch(`/truyen/${truyen_id}/follow/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
+        .then(r => r.json()).then(data => {
+          if (data.action === 'followed') { followBtn.classList.add('following'); followBtn.textContent = '♥ Bỏ theo dõi'; }
+          else { followBtn.classList.remove('following'); followBtn.textContent = '♡ Theo dõi'; }
+        });
+    });
+  }
+});
+</script>
+
+<style>
+/* BADGES & STATUS */
+.badge-custom { display: inline-block; padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; border: 1px solid transparent; }
+.badge-ongoing, .badge-dang_ra { background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+.badge-completed, .badge-hoan_thanh { background-color: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+.badge-onhold, .badge-tam_ngung { background-color: #fef3c7; color: #92400e; border-color: #fde68a; }
+.badge-type { background-color: #f3f4f6; color: #374151; border-color: #d1d5db; }
+.story-status-row { display: flex; gap: 10px; margin: 15px 0; align-items: center; }
+
+/* RATING */
+.stars { display: flex; gap: 8px; margin-bottom: 5px; }
+.star { font-size: 28px; cursor: pointer; color: #ddd; transition: color 0.2s; }
+.star.active { color: #ffc107; }
+.rating-hint { font-size: 12px; color: #999; }
+#followBtn.following { background: #ef4444; color: white; border-color: #ef4444; }
+
+/* DESCRIPTION */
+.story-description-text { max-height: 150px; overflow: hidden; transition: max-height 0.3s ease; }
+.story-description-text.expanded { max-height: none; }
+.read-more { cursor: pointer; color: #2ecc71; font-weight: 600; font-size: 14px; margin-top: 5px; display: inline-block; }
+
+/* TRANSLATOR CARD & AVATAR FIX */
+.translator-card { margin-bottom: 20px; }
+.translator-header { display: flex; align-items: center; padding: 12px; background: #fff; border-radius: 10px; border: 1px solid #eee; }
+.translator-avatar-wrapper { 
+    width: 45px; 
+    height: 45px; 
+    border-radius: 50%; 
+    overflow: hidden; 
+    margin-right: 12px; 
+    border: 1px solid #eee; 
+    flex-shrink: 0; 
+}
+.translator-avatar-img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    display: block; 
+}
+.translator-name { display: flex; flex-direction: column; }
+.label-posted { font-size: 11px; color: #888; text-transform: uppercase; font-weight: bold; }
+.user-link { text-decoration: none; color: #2c3e50; font-weight: 700; font-size: 15px; }
+
+/* NÚT CHỈNH SỬA MÀU ĐỎ (LOẠI BỎ ICON) */
+.btn-edit-red { 
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #ef4444; 
+    color: white; 
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s ease;
+}
+.btn-edit-red:hover {
+    background-color: #dc2626;
+    color: white;
+}
+
+/* MỤC LỤC */
+.volume-navigation { max-height: 800px; overflow-y: auto; }
+.volume-group { margin-bottom: 20px; }
+.volume-label { font-weight: 700; font-size: 0.95rem; padding: 8px 0; border-bottom: 2px solid #f0f0f0; margin-bottom: 8px; color: #333; }
+.chapter-list { list-style: none; padding: 0; margin: 0; }
+.chapter-list li { border-bottom: 1px dotted #eee; }
+.chapter-list a { display: block; padding: 8px 5px; color: #555; text-decoration: none; font-size: 0.9rem; }
+.empty-chapter { padding: 5px; font-size: 0.85rem; color: #999; list-style: none; }
+.story-genres h4 { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 8px; }
+</style>
+{% endblock %}

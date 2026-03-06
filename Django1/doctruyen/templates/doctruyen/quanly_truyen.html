@@ -1,0 +1,275 @@
+<style>
+    /* --- Tab Quản lý - Layout & Cards --- */
+    .mgmt-container { display: flex; flex-direction: column; gap: 12px; padding: 5px; }
+    
+    .mgmt-card {
+        display: flex; align-items: center; padding: 20px 25px;
+        background: #fff; border: 1px solid #e5e7eb; border-radius: 16px;
+        cursor: pointer; transition: all 0.3s ease; text-decoration: none;
+    }
+    .mgmt-card:hover { border-color: #cbd5e1; background-color: #f8fafc; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+
+    .mgmt-icon { width: 45px; font-size: 20px; color: #64748b; }
+    .mgmt-text { flex: 1; }
+    .mgmt-text h4 { margin: 0 0 4px 0; font-size: 16px; color: #334155; font-weight: 600; }
+    .mgmt-text p { margin: 0; font-size: 14px; color: #94a3b8; }
+    .mgmt-arrow { color: #cbd5e1; font-size: 14px; }
+
+    /* Card Xóa truyện */
+    .mgmt-card.danger-card { border-left: 4px solid #ef4444; }
+    .mgmt-card.danger-card .mgmt-icon { color: #ef4444; }
+
+    /* --- Modal Style --- */
+    .admin-modal {
+        position: fixed; inset: 0; background: rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(4px); display: none; align-items: center;
+        justify-content: center; z-index: 2000; padding: 20px;
+    }
+    .admin-modal.open { display: flex; }
+    
+    .modal-white-content {
+        background: #ffffff; width: 100%; max-width: 500px;
+        border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+        position: relative; animation: modalPop 0.3s ease-out; border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    @keyframes modalPop { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+    .modal-white-header {
+        padding: 20px 25px; display: flex; justify-content: space-between;
+        align-items: center; border-bottom: 1px solid #f1f5f9;
+    }
+    .modal-white-header h3 { margin: 0; font-size: 18px; font-weight: 700; color: #1e293b; }
+    .close-modal-btn { font-size: 22px; color: #94a3b8; cursor: pointer; transition: color 0.2s; }
+    .close-modal-btn:hover { color: #1e293b; }
+
+    .modal-white-body { padding: 25px; }
+
+    /* Box thông tin truyện */
+    .modal-info-box {
+        background: #f8fafc; border-radius: 12px; padding: 15px;
+        margin-bottom: 20px; border: 1px solid #f1f5f9;
+    }
+    .modal-info-box h4 { margin: 0; font-size: 14px; color: #64748b; font-weight: 500; }
+    .modal-info-box .hl-blue { color: #3b82f6; font-weight: 700; }
+
+    /* --- Danh sách thành viên (Mới) --- */
+    .member-list-label { font-size: 13px; color: #64748b; margin-bottom: 8px; font-weight: 600; }
+    .member-list-wrapper {
+        border: 1px solid #f1f5f9; border-radius: 12px;
+        overflow: hidden; margin-bottom: 20px; background: #fff;
+    }
+    .member-item {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 15px; border-bottom: 1px solid #f1f5f9;
+    }
+    .member-item:last-child { border-bottom: none; }
+    .member-info { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #334155; font-weight: 500; }
+    .member-info i { color: #fbbf24; font-size: 12px; }
+    .remove-member-btn { color: #94a3b8; cursor: pointer; font-size: 14px; transition: color 0.2s; }
+    .remove-member-btn:hover { color: #ef4444; }
+
+    /* --- Form Elements --- */
+    .ui-input {
+        width: 100%; background: #f9fafb; border: 1px solid #e2e8f0;
+        padding: 12px 16px; border-radius: 10px; color: #1e293b; font-size: 14px;
+        outline: none; transition: all 0.2s;
+    }
+    .ui-input:focus { border-color: #3b82f6; background: #fff; }
+    
+    .warning-text-box {
+        background: #fff1f2; border-left: 4px solid #f43f5e;
+        padding: 12px 15px; color: #9f1239; font-size: 13px; margin-bottom: 20px; border-radius: 4px;
+    }
+
+    .modal-footer-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+    .btn-cancel { background: #f1f5f9; color: #64748b; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; }
+    .btn-black { background: #1e293b; color: #fff; border: none; padding: 10px 25px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn-black:hover { background: #0f172a; }
+    .btn-delete-red { background: #ef4444; color: #fff; border: none; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; width: 100%; transition: opacity 0.2s; }
+    .btn-delete-red:hover { opacity: 0.9; }
+</style>
+
+<div class="mgmt-container">
+    <div class="mgmt-card" onclick="openAdminModal('transferModal')">
+        <div class="mgmt-icon"><i class="fas fa-exchange-alt"></i></div>
+        <div class="mgmt-text">
+            <h4>Chuyển quyền</h4>
+            <p>Chuyển quyền sở hữu cho người khác.</p>
+        </div>
+        <div class="mgmt-arrow"><i class="fas fa-chevron-right"></i></div>
+    </div>
+
+    <div class="mgmt-card" onclick="openAdminModal('shareModal')">
+        <div class="mgmt-icon"><i class="fas fa-users"></i></div>
+        <div class="mgmt-text">
+            <h4>Share quyền</h4>
+            <p>Quản lý những người cùng đăng truyện.</p>
+        </div>
+        <div class="mgmt-arrow"><i class="fas fa-chevron-right"></i></div>
+    </div>
+
+    <div class="mgmt-card danger-card" onclick="openAdminModal('deleteModal')">
+        <div class="mgmt-icon"><i class="fas fa-trash-alt"></i></div>
+        <div class="mgmt-text">
+            <h4>Xóa truyện</h4>
+            <p>Xóa toàn bộ dữ liệu. Không thể hoàn tác.</p>
+        </div>
+        <div class="mgmt-arrow"><i class="fas fa-chevron-right"></i></div>
+    </div>
+</div>
+
+<div id="transferModal" class="admin-modal">
+    <div class="modal-white-content">
+        <div class="modal-white-header">
+            <h3>Chuyển quyền</h3>
+            <span class="close-modal-btn" onclick="closeAdminModal('transferModal')">&times;</span>
+        </div>
+        <div class="modal-white-body">
+            <div class="modal-info-box">
+                <h4>Truyện: <span class="hl-blue">{{ truyen.ten }}</span></h4>
+            </div>
+            <input type="text" id="transferUsernameInput" class="ui-input" placeholder="Nhập tên người nhận quyền...">
+            <div class="modal-footer-btns">
+                <button class="btn-cancel" onclick="closeAdminModal('transferModal')">Hủy</button>
+                        <button class="btn-black" id="transferConfirmBtn">Xác nhận chuyển</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="shareModal" class="admin-modal">
+    <div class="modal-white-content">
+        <div class="modal-white-header">
+            <h3>Share quyền quản lý</h3>
+            <span class="close-modal-btn" onclick="closeAdminModal('shareModal')">&times;</span>
+        </div>
+        <div class="modal-white-body">
+            <div class="modal-info-box">
+                <h4>Truyện: <span class="hl-blue">{{ truyen.ten }}</span></h4>
+            </div>
+
+            <div class="member-list-label">Thành viên hiện có:</div>
+            <div class="member-list-wrapper">
+                <div class="member-item">
+                    <div class="member-info"><i class="fas fa-star"></i> {{ truyen.user.username }} (Chủ)</div>
+                </div>
+                {% for colab in truyen.collaborators.all %}
+                <div class="member-item">
+                    <div class="member-info">{{ colab.username }}</div>
+                    <div class="remove-member-btn" title="Gỡ quyền"><i class="fas fa-user-minus"></i></div>
+                </div>
+                {% empty %}
+                <div class="member-item" style="color: #94a3b8; font-style: italic; font-size: 13px;">Chưa có người cùng quản lý.</div>
+                {% endfor %}
+            </div>
+
+            <div class="warning-text-box">Không thêm thành viên nếu chưa được đồng ý.</div>
+            
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="shareUsernameInput" class="ui-input" placeholder="Tên thành viên mới...">
+                <button class="btn-black" id="shareConfirmBtn" style="white-space: nowrap;">Thêm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="deleteModal" class="admin-modal">
+    <div class="modal-white-content" style="max-width: 420px;">
+        <div class="modal-white-body" style="text-align: center; padding: 40px 30px;">
+            <div style="width: 70px; height: 70px; background: #fef2f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 30px; color: #ef4444;"></i>
+            </div>
+            <h3 style="margin: 0 0 10px 0; color: #1e293b; font-size: 20px;">Xác nhận xóa truyện?</h3>
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">Truyện <span style="font-weight: 700; color: #ef4444;">{{ truyen.ten }}</span> sẽ bị xóa vĩnh viễn khỏi hệ thống.</p>
+            
+            <textarea class="ui-input" style="min-height: 80px; margin-bottom: 20px;" placeholder="Lý do xóa (không bắt buộc)..."></textarea>
+            
+            <button class="btn-delete-red" id="deleteConfirmBtn" style="margin-bottom: 12px;">Xác nhận xóa</button>
+            <div style="color: #94a3b8; font-size: 14px; cursor: pointer; font-weight: 600;" onclick="closeAdminModal('deleteModal')">Quay lại</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openAdminModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeAdminModal(id) { document.getElementById(id).classList.remove('open'); }
+    window.onclick = function(e) { if (e.target.classList.contains('admin-modal')) closeAdminModal(e.target.id); }
+</script>
+<script>
+// JS helper: get csrftoken from cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.getElementById('transferConfirmBtn').addEventListener('click', function(){
+    const username = document.getElementById('transferUsernameInput').value.trim();
+    if (!username) { alert('Nhập tên người nhận'); return; }
+    const form = new FormData();
+    form.append('loai', 'transfer');
+    form.append('receiver_username', username);
+    form.append('truyen_id', '{{ truyen.id }}');
+    form.append('message', `Yêu cầu chuyển quyền truyện {{ truyen.ten }}`);
+    form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+    fetch('/notifications/create/', { method: 'POST', body: form })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success'){
+                alert('Đã gửi yêu cầu');
+                closeAdminModal('transferModal');
+            } else alert(data.message || 'Lỗi');
+        }).catch(err=> alert('Lỗi: '+err.message));
+});
+
+document.getElementById('shareConfirmBtn').addEventListener('click', function(){
+    const username = document.getElementById('shareUsernameInput').value.trim();
+    if (!username) { alert('Nhập tên thành viên'); return; }
+    const form = new FormData();
+    form.append('loai', 'share');
+    form.append('receiver_username', username);
+    form.append('truyen_id', '{{ truyen.id }}');
+    form.append('message', `Yêu cầu share quyền truyện {{ truyen.ten }}`);
+    form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+    fetch('/notifications/create/', { method: 'POST', body: form })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success'){
+                alert('Đã gửi yêu cầu share');
+                closeAdminModal('shareModal');
+            } else alert(data.message || 'Lỗi');
+        }).catch(err=> alert('Lỗi: '+err.message));
+});
+
+document.getElementById('deleteConfirmBtn').addEventListener('click', function(){
+    const reason = document.querySelector('#deleteModal textarea').value.trim();
+    const form = new FormData();
+    form.append('loai', 'delete_request');
+    form.append('truyen_id', '{{ truyen.id }}');
+    form.append('message', reason || `Yêu cầu xóa truyện {{ truyen.ten }}`);
+    form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+    fetch('/notifications/create/', { method: 'POST', body: form })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success'){
+                alert('Yêu cầu xóa đã gửi đến admin');
+                closeAdminModal('deleteModal');
+            } else alert(data.message || 'Lỗi');
+        }).catch(err=> alert('Lỗi: '+err.message));
+});
+</script>

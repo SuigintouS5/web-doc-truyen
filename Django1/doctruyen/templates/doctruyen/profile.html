@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Trang cá nhân - {{ display_user.username }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/profile.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<input type="hidden" id="csrf_token" value="{{ csrf_token }}">
+
+<div class="profile-container container-layout">
+    <div class="profile-header">
+        <div class="profile-banner">
+            <img id="banner-preview" 
+                 src="{% if display_user.profile.banner %}{{ display_user.profile.banner.url }}{% else %}{% static 'img/white.jpg' %}{% endif %}" 
+                 alt="Banner">
+            
+            {% if is_owner %}
+            <label for="banner-upload" class="edit-banner-btn" title="Đổi ảnh bìa">
+                <i class="fa-solid fa-camera"></i>
+                <input type="file" id="banner-upload" hidden accept="image/*">
+            </label>
+            {% endif %}
+        </div>
+
+        <div class="profile-meta-wrapper">
+            <div class="profile-avatar">
+                <img id="avatar-preview" 
+                     src="{% if display_user.profile.avatar %}{{ display_user.profile.avatar.url }}{% else %}{% static 'img/avatar.jpg' %}{% endif %}" 
+                     alt="Avatar">
+                
+                {% if is_owner %}
+                <label for="avatar-upload" class="edit-avatar-btn" title="Đổi ảnh đại diện">
+                    <i class="fa-solid fa-camera"></i>
+                    <input type="file" id="avatar-upload" hidden accept="image/*">
+                </label>
+                {% endif %}
+            </div>
+
+            <div class="profile-info-bar">
+                <h1 class="profile-name">{{ display_user.username }}</h1>
+                
+                <div class="profile-actions">
+                    <button id="openContactModal" class="btn-contact-green">
+                        <i class="fa-regular fa-envelope"></i> Liên hệ
+                    </button>
+
+                    {% if is_owner %}
+                    <a href="{% url 'truyen-create' %}" class="btn-add-story">
+                        <span>+</span> Thêm truyện
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="section-title">Truyện đã đăng</h2>
+    <div class="story-grid">
+        {% for t in truyen_dang %}
+        <div class="story-card">
+            <a href="{% url 'truyen-detail' t.slug %}">
+                <div class="story-cover">
+                    <img src="{{ t.get_anh_url }}" alt="{{ t.ten }}">
+                    <span class="role-badge is-author">Tác giả</span>
+                </div>
+            </a>
+            <div class="story-info">
+                <h3><a href="{% url 'truyen-detail' t.slug %}">{{ t.ten }}</a></h3>
+                <p>{{ t.tac_gia }}</p>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-msg">Chưa có truyện nào được đăng tải.</div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="contactModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-modal" id="closeContactModal">&times;</span>
+        <h3 class="modal-title">Kết nối với {{ display_user.username }}</h3>
+        <hr class="modal-divider">
+        <div id="contactDetails" class="contact-list-container">
+            </div>
+    </div>
+</div>
+
+<div id="raw-data-store" style="display: none;">
+    <input type="hidden" id="raw-phone" value="{{ display_user.profile.phone|default:'' }}">
+    <input type="hidden" id="raw-gmail" value="{{ display_user.profile.gmail|default:'' }}">
+    <input type="hidden" id="raw-hide-phone" value="{{ display_user.profile.hide_phone|yesno:'True,False' }}">
+    <input type="hidden" id="raw-hide-gmail" value="{{ display_user.profile.hide_gmail|yesno:'True,False' }}">
+    
+    {% for social in display_user.profile.social_links.all %}
+    <span class="social-data-source" data-name="{{ social.name }}" data-link="{{ social.link }}"></span>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Truyền URL upload từ Django sang JS
+    const uploadUrl = "{% url 'update-profile-image-ajax' %}";
+</script>
+<script src="{% static 'js/profile.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,205 @@
+/* ==========================================================================
+   1. CONTAINER & KHUNG QUẢN LÝ
+   ========================================================================== */
+.volume-manager {
+    margin-top: 40px;
+    padding: 24px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.volume-header-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+/* ==========================================================================
+   2. STYLE NÚT BẤM (ĐỒNG BỘ 38PX - 40PX)
+   ========================================================================== */
+/* Nút chính (Đen): Thêm Tập, Thêm Chương, Lưu */
+.btn-add-volume, 
+.btn-action.btn-add-chapter,
+#saveVolumeBtn, 
+#saveChapterBtn, 
+#saveSortBtn {
+    height: 38px !important;
+    padding: 0 20px !important;
+    background: #000000 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+/* Nút phụ (Xám): Sắp xếp Tập, Hủy */
+.btn-sort-custom,
+#closeVolumeModal, 
+#closeChapterBtn, 
+#closeSortModal,
+.btn-close-modal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 16px !important;
+    height: 38px !important;
+    background-color: #f3f4f6 !important; /* Màu xám nhạt như ảnh */
+    color: #4b5563 !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Nút Icon (Sắp xếp chương, Sửa, Xóa) */
+.btn-icon-only {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #4b5563;
+    transition: all 0.2s;
+}
+
+.btn-icon-only:hover { background: #f3f4f6; }
+.btn-icon-only.danger:hover { color: #ef4444; border-color: #fecaca; background: #fef2f2; }
+
+/* ==========================================================================
+   3. VOLUME CARD & ACCORDION
+   ========================================================================== */
+.volume-card {
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.volume-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #fafafa;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+}
+
+.chapter-content-area { width: 100%; display: block; }
+
+.vol-name {
+    font-size: 1rem; font-weight: 600; color: #111;
+    display: flex; align-items: center; gap: 8px;
+}
+
+.volume-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ==========================================================================
+   4. BẢNG CHƯƠNG & TRẠNG THÁI
+   ========================================================================== */
+.modern-table { width: 100%; border-collapse: collapse; }
+.modern-table th {
+    color: #9ca3af; font-size: 0.7rem; text-transform: uppercase;
+    padding: 12px 20px; text-align: left; border-bottom: 1px solid #f3f4f6;
+}
+.modern-table td { padding: 12px 20px; font-size: 0.9rem; border-bottom: 1px solid #f9fafb; }
+
+.badge-success {
+    background: #ecfdf5; color: #059669; padding: 4px 10px;
+    border-radius: 9999px; font-size: 0.75rem; font-weight: 500;
+}
+
+/* ==========================================================================
+   5. MODAL HỆ THỐNG (FIX UI NHẬP LIỆU)
+   ========================================================================== */
+.volume-modal {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10000;
+}
+
+.modal-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px);
+}
+
+.volume-modal-content {
+    position: relative; background: white;
+    width: 500px; max-width: 90%; padding: 30px;
+    border-radius: 24px; z-index: 10001;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+}
+
+#chapterModal .volume-modal-content { width: 850px; }
+
+.modal-body label {
+    display: block; margin-bottom: 8px;
+    font-weight: 600; font-size: 0.9rem; color: #374151;
+}
+
+.modal-body input, .modal-body textarea {
+    width: 100%; padding: 12px;
+    border: 1px solid #e5e7eb; border-radius: 12px;
+    font-size: 0.95rem; margin-bottom: 16px;
+    box-sizing: border-box; outline: none;
+}
+
+.modal-body input:focus { border-color: #000; }
+
+.modal-footer {
+    display: flex; justify-content: flex-end;
+    gap: 12px; margin-top: 20px;
+}
+
+/* ==========================================================================
+   6. SORTABLE LIST (DANH SÁCH KÉO THẢ)
+   ========================================================================= */
+#sortableList { list-style: none; padding: 0; margin: 20px 0; }
+#sortableList li {
+    padding: 14px 18px; 
+    background: #ffffff; 
+    border: 1px solid #e5e7eb;
+    margin-bottom: 10px; 
+    border-radius: 12px; 
+    cursor: grab;
+    display: flex; 
+    align-items: center; 
+    gap: 12px;
+    font-size: 0.95rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#sortableList li:active { cursor: grabbing; }
+#sortableList li i.sort-handle { color: #d1d5db; cursor: grab; }
+
+.sortable-ghost { 
+    opacity: 0.3; 
+    background: #f3f4f6 !important; 
+    border: 2px dashed #000 !important; 
+}
+
+/* ==========================================================================
+   7. TIỆN ÍCH CƯỠNG CHẾ
+   ========================================================================== */
+.hidden { display: none !important; }
+
+.text-muted { color: #9ca3af; font-size: 0.85rem; }

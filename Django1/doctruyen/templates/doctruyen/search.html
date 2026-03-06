@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tìm kiếm: {{ query }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/search.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="search-container container-layout">
+    <div class="search-header">
+        <h1 class="search-title">
+            {% if query %}
+                Kết quả tìm kiếm: "{{ query }}"
+            {% else %}
+                Tìm kiếm truyện
+            {% endif %}
+        </h1>
+        <p class="search-result-count">{{ count }} truyện được tìm thấy</p>
+    </div>
+
+    <div class="search-layout">
+        <!-- Filter Sidebar -->
+        <div class="search-filter">
+            <form method="get" id="filterForm">
+                <input type="hidden" name="q" value="{{ query }}">
+
+                <!-- Tác giả -->
+                <div class="filter-section">
+                    <div class="filter-title">Tác giả</div>
+                    <input type="text" name="tac_gia" value="{{ tac_gia_filter }}" placeholder="Nhập tên tác giả..." class="filter-input">
+                </div>
+
+                <!-- Tình trạng -->
+                <div class="filter-section">
+                    <div class="filter-title">Tình trạng</div>
+                    <select name="trang_thai" class="filter-select">
+                        <option value="">Tất cả</option>
+                        <option value="dang_ra" {% if trang_thai_filter == 'dang_ra' %}selected{% endif %}>Đang ra</option>
+                        <option value="hoan_thanh" {% if trang_thai_filter == 'hoan_thanh' %}selected{% endif %}>Hoàn thành</option>
+                        <option value="tam_ngung" {% if trang_thai_filter == 'tam_ngung' %}selected{% endif %}>Tạm ngưng</option>
+                    </select>
+                </div>
+
+                <!-- Thể loại -->
+                <div class="filter-section">
+                    <div class="filter-title">Thể loại</div>
+                    <div class="filter-group">
+                        {% for genre in all_genres %}
+                        <div class="filter-item">
+                            <input type="checkbox" id="genre_{{ genre.id }}" name="genres" value="{{ genre.slug }}" 
+                                {% if genre.slug in genres_filter %}checked{% endif %}>
+                            <label for="genre_{{ genre.id }}">{{ genre.name }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="filter-actions">
+                    <button type="submit" class="btn-filter search">Lọc</button>
+                    <a href="{% url 'search' %}?q={{ query }}" class="btn-filter reset">Xóa bộ lọc</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results -->
+        <div>
+            {% if truyens %}
+                <div class="search-results">
+                    {% for truyen in truyens %}
+                    <a href="{% url 'truyen-detail' truyen.slug %}" class="story-card">
+                        <div class="story-cover">
+                            <img src="{% if truyen.anh %}{{ truyen.get_anh_url }}{% else %}{% static 'img/cover_default.jpg' %}{% endif %}" alt="{{ truyen.ten }}">
+                        </div>
+                        <div class="story-info">
+                            <div class="story-title" title="{{ truyen.ten }}">{{ truyen.ten }}</div>
+                            <div class="story-author">{{ truyen.tac_gia }}</div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    {% if query %}
+                        <p class="empty-text">Không tìm thấy truyện nào</p>
+                        <p class="empty-hint">Hãy thử tìm kiếm với từ khóa khác</p>
+                    {% else %}
+                        <p class="empty-text">Vui lòng nhập từ khóa để tìm kiếm</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/search.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Chỉnh sửa truyện: {{ truyen.ten }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="{% static 'css/truyen_form.css' %}">
+<link rel="stylesheet" href="{% static 'css/volume_chapter.css' %}">
+
+<style>
+  /* Nền trang xám cực nhạt để làm nổi bật khối nội dung trắng */
+  body { 
+    background-color: #f8fafc !important; 
+    color: #111827;
+  }
+
+  /* Khối container chính: Trắng tinh, viền mảnh, bo góc hiện đại */
+  .add-story-container {
+    background: #ffffff;
+    padding: 35px 40px;
+    border-radius: 24px; /* Bo góc lớn đồng bộ với ảnh modal */
+    max-width: 1000px;
+    margin: 30px auto;
+    border: 1px solid #e5e7eb; /* Viền mảnh như ảnh 2 */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  }
+
+  /* Tiêu đề: Đen đậm, font chữ lớn */
+  .page-main-title { 
+    color: #000; 
+    font-size: 26px; 
+    margin-bottom: 30px; 
+    font-weight: 800; 
+    letter-spacing: -0.8px;
+  }
+
+  /* Hệ thống Tab: Chữ đen trên nền trắng */
+  .edit-tabs-wrapper { margin-top: 10px; }
+  
+  .edit-tabs-nav {
+    display: flex; 
+    gap: 45px; 
+    border-bottom: 1px solid #e5e7eb; /* Đường kẻ mảnh */
+    margin-bottom: 30px; 
+    padding-left: 5px;
+  }
+
+  .tab-btn {
+    background: none; 
+    border: none; 
+    cursor: pointer; 
+    position: relative;
+    transition: all 0.2s ease; 
+    font-size: 20px !important; 
+    font-weight: 700; 
+    color: #94a3b8 !important; /* Xám nhạt khi không chọn */
+    padding: 12px 0;
+  }
+
+  .tab-btn:hover {
+    color: #64748b !important;
+  }
+
+  /* Trạng thái Active: Chữ đen tuyền */
+  .tab-btn.active { 
+    color: #000000 !important; 
+  }
+
+  .tab-btn.active::after {
+    content: ''; 
+    position: absolute; 
+    bottom: -1px; 
+    left: 0;
+    width: 100%; 
+    height: 2px; 
+    background-color: #ef4444; /* Gạch chân đỏ mảnh đặc trưng */
+  }
+
+  /* Panel nội dung */
+  .tab-panel { display: none; }
+  .tab-panel.active { 
+    display: block; 
+    animation: fadeInTab 0.3s ease-out; 
+  }
+
+  @keyframes fadeInTab {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Nút bấm Lưu: Màu đen đặc như ảnh 8 */
+  .submit-btn {
+    background: #000 !important;
+    color: #fff !important;
+    padding: 12px 35px !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    border: none !important;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .submit-btn:active {
+    transform: scale(0.98);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="add-story-container">
+  <h1 class="page-main-title">Chỉnh sửa: {{ truyen.ten }}</h1>
+
+  <div class="edit-tabs-wrapper">
+    <div class="edit-tabs-nav">
+      <button class="tab-btn active" onclick="switchEditTab(event, 'info-panel')">Thông tin</button>
+      <button class="tab-btn" onclick="switchEditTab(event, 'chapter-panel')">Danh sách Tập & Chương</button>
+      <button class="tab-btn" onclick="switchEditTab(event, 'admin-panel')">Quản lý</button>
+    </div>
+
+    <div id="info-panel" class="tab-panel active">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% include "doctruyen/truyen_form.html" %}
+        <div style="margin-top: 35px; text-align: right;">
+          <button type="submit" class="submit-btn">Lưu thay đổi</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="chapter-panel" class="tab-panel">
+      <div class="volume-section">
+        {% include "doctruyen/volume_chapter_manager.html" %}
+      </div>
+    </div>
+
+    <div id="admin-panel" class="tab-panel">
+        {% include "doctruyen/quanly_truyen.html" %}
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchEditTab(evt, panelId) {
+    // Ẩn các panel cũ
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+    // Kích hoạt panel mới
+    document.getElementById(panelId).classList.add('active');
+    evt.currentTarget.classList.add('active');
+    
+    // Lưu lại vị trí tab vào localStorage (tùy chọn để khi reload không bị mất tab)
+    localStorage.setItem('activeEditTab', panelId);
+  }
+
+  // Khôi phục tab cũ khi reload trang
+  document.addEventListener('DOMContentLoaded', function() {
+    const savedTab = localStorage.getItem('activeEditTab');
+    if (savedTab && document.getElementById(savedTab)) {
+        const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(savedTab));
+        if (btn) btn.click();
+    }
+  });
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/themtruyen.js' %}"></script>
+<script src="{% static 'js/truyen_edit.js' %}"></script>
+{% endblock %}

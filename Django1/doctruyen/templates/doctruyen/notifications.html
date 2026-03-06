@@ -1,0 +1,157 @@
+{% extends 'doctruyen/base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+  .notifications-container { max-width: 800px; margin: 30px auto; padding: 0 15px; }
+  .notifications-title { font-size: 28px; font-weight: 700; margin-bottom: 20px; color: #1e293b; }
+  
+  .notification-item {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px;
+    margin-bottom: 12px; display: flex; gap: 15px; align-items: flex-start;
+    transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .notification-item:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .notification-item.unread { background: #f8fafc; border-color: #cbd5e1; }
+  
+  .notification-badge {
+    width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .notification-badge.transfer { background: #dbeafe; color: #1e40af; }
+  .notification-badge.share { background: #dbeafe; color: #1e40af; }
+  .notification-badge.delete_request { background: #fee2e2; color: #991b1b; }
+  .notification-badge.like_comment { background: #fef3c7; color: #92400e; }
+  .notification-badge.reply_comment { background: #e9d5ff; color: #6b21a8; }
+  
+  .notification-content { flex: 1; }
+  .notification-type { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .notification-text { font-size: 14px; color: #334155; margin-bottom: 8px; line-height: 1.5; }
+  .notification-time { font-size: 12px; color: #94a3b8; margin-bottom: 12px; }
+  
+  .notification-story { font-size: 13px; color: #3b82f6; text-decoration: none; font-weight: 600; margin-right: 8px; }
+  .notification-story:hover { text-decoration: underline; }
+  
+  .notification-actions { display: flex; gap: 8px; }
+  .btn-notif { padding: 8px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-accept { background: #10b981; color: #fff; }
+  .btn-accept:hover { background: #059669; }
+  .btn-decline { background: #ef4444; color: #fff; }
+  .btn-decline:hover { background: #dc2626; }
+  
+  .notification-status { font-size: 13px; color: #64748b; font-style: italic; padding: 8px 0; }
+  .status-accepted { color: #10b981; }
+  .status-declined { color: #ef4444; }
+</style>
+
+<div class="notifications-container">
+  <h1 class="notifications-title">🔔 Thông báo</h1>
+  {% if notifications %}
+    {% for n in notifications %}
+    <div class="notification-item {% if not n.da_doc %}unread{% endif %}" data-id="{{ n.id }}">
+      <div class="notification-badge {{ n.loai }}">
+        {% if n.loai == 'transfer' %}⚡
+        {% elif n.loai == 'share' %}👥
+        {% elif n.loai == 'delete_request' %}🗑️
+        {% elif n.loai == 'like_comment' %}👍
+        {% elif n.loai == 'reply_comment' %}💬
+        {% else %}📢{% endif %}
+      </div>
+      
+      <div class="notification-content">
+        <div class="notification-type">
+          {% if n.loai == 'transfer' %}Yêu cầu chuyển quyền
+          {% elif n.loai == 'share' %}Yêu cầu chia sẻ quyền
+          {% elif n.loai == 'delete_request' %}Yêu cầu xóa truyện
+          {% elif n.loai == 'like_comment' %}Like bình luận
+          {% elif n.loai == 'reply_comment' %}Reply bình luận
+          {% elif n.loai == 'mention_comment' %}Mention bình luận
+          {% elif n.loai == 'new_chapter' %}Chương mới
+          {% elif n.loai == 'new_follow' %}Follow mới
+          {% else %}{{ n.loai }}{% endif %}
+        </div>
+        
+        <div class="notification-text">{{ n.noi_dung }}</div>
+        
+        {% if n.truyen %}
+        <div style="margin-bottom: 12px;">
+          <a href="{% url 'truyen-detail' slug=n.truyen.slug %}" class="notification-story">📖 {{ n.truyen.ten }}</a>
+        </div>
+        {% endif %}
+        
+        <div class="notification-time">{{ n.ngay_tao|date:"d/m/Y H:i" }}</div>
+        
+        {% if n.loai in 'transfer,share,delete_request' %}
+          {% if n.status == 'PENDING' %}
+          <div class="notification-actions">
+            <button class="btn-notif btn-accept" data-id="{{ n.id }}">✓ Đồng ý</button>
+            <button class="btn-notif btn-decline" data-id="{{ n.id }}">✕ Từ chối</button>
+          </div>
+          {% else %}
+          <div class="notification-status {% if n.status == 'ACCEPTED' %}status-accepted{% elif n.status == 'DECLINED' %}status-declined{% endif %}">
+            {% if n.status == 'ACCEPTED' %}✓ Đã chấp nhận
+            {% elif n.status == 'DECLINED' %}✕ Đã từ chối
+            {% else %}{{ n.status }}{% endif %}
+          </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+    <div style="font-size: 48px; margin-bottom: 12px;">📭</div>
+    <p style="font-size: 16px;">Chưa có thông báo nào</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.querySelectorAll('.btn-accept').forEach(btn => {
+    btn.addEventListener('click', function(){
+        const id = this.dataset.id;
+        const form = new FormData();
+        form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        fetch(`/notifications/${id}/accept/`, { method: 'POST', body: form })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') { 
+                  alert('Đã chấp nhận!');
+                  location.reload(); 
+                } else alert(data.message || 'Lỗi');
+            }).catch(err=> alert('Lỗi: '+err.message));
+    });
+});
+
+document.querySelectorAll('.btn-decline').forEach(btn => {
+    btn.addEventListener('click', function(){
+        const id = this.dataset.id;
+        const form = new FormData();
+        form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        fetch(`/notifications/${id}/decline/`, { method: 'POST', body: form })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') { 
+                  alert('Đã từ chối!');
+                  location.reload(); 
+                } else alert(data.message || 'Lỗi');
+            }).catch(err=> alert('Lỗi: '+err.message));
+    });
+});
+</script>
+{% endblock %}

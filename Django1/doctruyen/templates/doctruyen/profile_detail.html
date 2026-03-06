@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Hồ sơ cá nhân{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/profile-detail.css' %}">
+<style>
+    /* 1. Modal Overlay & Nội dung */
+    .modal-overlay {
+        display: none; 
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.6); z-index: 9999; justify-content: center; align-items: center;
+    }
+    .modal-overlay.active { display: flex !important; }
+
+    .modal-content {
+        background: #fff;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 450px;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        box-sizing: border-box;
+    }
+    
+    .modal-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-form-container {
+        padding: 20px;
+    }
+
+    /* 2. Fix lỗi Input tràn và dính lề */
+    .modal-content input[type="text"], 
+    .modal-content input[type="email"], 
+    .modal-content input[type="password"], 
+    .modal-content select {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        margin-top: 5px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        display: block;
+    }
+
+    .form-group { margin-bottom: 15px; }
+    .form-group label { font-size: 14px; font-weight: 600; color: #444; }
+
+    /* 3. Social box & Nút xóa (Fix lỗi ảnh đè chữ) */
+    .social-box {
+        background: #f9f9f9; 
+        padding: 25px 15px 15px 15px; /* Tăng padding trên để né nút xóa */
+        border-radius: 8px; 
+        margin-bottom: 12px; 
+        border: 1px solid #eee; 
+        position: relative;
+        box-sizing: border-box;
+    }
+    .btn-remove-row {
+        position: absolute; right: 8px; top: 8px; 
+        background: #ffeded; color: #ff4d4d; border: none; 
+        border-radius: 50%; cursor: pointer; width: 24px; height: 24px;
+        display: flex; align-items: center; justify-content: center; font-weight: bold;
+        z-index: 5;
+    }
+    .btn-remove-row:hover { background: #ff4d4d; color: #fff; }
+
+    /* 4. Nút quay lại chuẩn UX */
+    .btn-back {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 8px 16px; background: #fff; color: #374151;
+        border: 1px solid #e5e7eb; border-radius: 8px;
+        text-decoration: none; font-size: 14px; transition: all 0.2s;
+    }
+    .btn-back:hover { background: #f9fafb; transform: translateX(-3px); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-detail-container container-layout">
+    <div class="profile-detail-header">
+        <h1>Cài đặt tài khoản</h1>
+        <a href="{% url 'profile' %}" class="btn-back"><span>←</span> Quay lại</a>
+    </div>
+
+    <div class="profile-grid-wrapper">
+        <div class="profile-main-column">
+            <div class="profile-info-card">
+                <div class="info-section">
+                    <h2>Thông tin tài khoản</h2>
+                    <div class="info-item">
+                        <label class="info-label">Tên đăng nhập</label>
+                        <div class="info-value"><strong>{{ user.username }}</strong></div>
+                    </div>
+                    <div class="info-item">
+                        <label class="info-label">Email</label>
+                        <div class="info-value">{{ user.email }}</div>
+                    </div>
+                    <div class="info-item">
+                        <label class="info-label">Mật khẩu</label>
+                        <div class="info-value"><span>••••••••</span></div>
+                    </div>
+                    <div class="info-actions" style="display:flex; gap:10px; margin-top:20px;">
+                        <button class="btn btn-primary" id="openEditProfileBtn">Sửa</button>
+                        <button class="btn btn-secondary" id="openChangePasswordBtn">Đổi mật khẩu</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-sidebar-column">
+            <div class="profile-info-card sidebar-card">
+                <div class="info-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2 style="margin: 0; border: none; padding: 0;">Liên kết</h2>
+                        <button class="btn-sm-outline" id="openPrivacyBtn">Cài đặt</button>
+                    </div>
+                    
+                    <div class="info-item">
+                        <label class="info-label">Số điện thoại</label>
+                        <div class="info-value">
+                            {% if user.profile.hide_phone %}<i>[Đã ẩn]</i>{% else %}{{ user.profile.phone|default:"Chưa thiết lập" }}{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <label class="info-label">Gmail liên hệ</label>
+                        <div class="info-value">
+                            {% if user.profile.hide_gmail %}<i>[Đã ẩn]</i>{% else %}{{ user.profile.gmail|default:"Chưa thiết lập" }}{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <label class="info-label">Mạng xã hội</label>
+                        <div style="margin-top: 8px;">
+                            {% for social in user.profile.social_links.all %}
+                                <div class="social-tag-item"><b>{{ social.name }}:</b> {{ social.link }}</div>
+                            {% empty %}
+                                <span style="color: #999; font-style: italic;">Chưa có liên kết</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="info-actions" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                        <button class="btn btn-outline" style="width: 100%;" id="openEditExtraBtn">Sửa liên kết</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="editProfileModal">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Sửa tài khoản</h2><button class="modal-close">×</button></div>
+        <form id="editProfileForm" class="modal-form-container">
+            <div class="form-group"><label>Tên đăng nhập</label><input type="text" name="username" value="{{ user.username }}"></div>
+            <div class="form-group"><label>Email</label><input type="email" name="email" value="{{ user.email }}"></div>
+            <div class="modal-actions" style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-secondary btn-cancel" style="flex:1">Hủy</button>
+                <button type="submit" class="btn btn-primary" style="flex:1">Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="changePasswordModal">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Đổi mật khẩu</h2><button class="modal-close">×</button></div>
+        <form id="changePasswordForm" class="modal-form-container">
+            <div class="form-group"><label>Mật khẩu cũ</label><input type="password" name="old_password"></div>
+            <div class="form-group"><label>Mật khẩu mới</label><input type="password" name="new_password"></div>
+            <div class="modal-actions" style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-secondary btn-cancel" style="flex:1">Hủy</button>
+                <button type="submit" class="btn btn-primary" style="flex:1">Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="privacyModal">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Quyền riêng tư</h2><button class="modal-close">×</button></div>
+        <form id="privacyForm" class="modal-form-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <label>Ẩn SĐT trên hồ sơ</label>
+                <input type="checkbox" name="hide_phone" {% if user.profile.hide_phone %}checked{% endif %} style="width: 20px !important;">
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <label>Ẩn Gmail trên hồ sơ</label>
+                <input type="checkbox" name="hide_gmail" {% if user.profile.hide_gmail %}checked{% endif %} style="width: 20px !important;">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%">Lưu cài đặt</button>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="editExtraModal">
+    <div class="modal-content">
+        <div class="modal-header"><h2>Sửa liên kết</h2><button class="modal-close">×</button></div>
+        <form id="editExtraForm" class="modal-form-container">
+            <div class="form-group"><label>Số điện thoại</label><input type="text" name="phone" value="{{ user.profile.phone|default:'' }}"></div>
+            <div class="form-group"><label>Gmail liên hệ</label><input type="email" name="gmail" value="{{ user.profile.gmail|default:'' }}"></div>
+            <div id="socialInputsContainer">
+                {% for social in user.profile.social_links.all %}
+                <div class="social-box">
+                    <button type="button" class="btn-remove-row">×</button>
+                    <select name="social_name[]">
+                        <option value="Facebook" {% if social.name == "Facebook" %}selected{% endif %}>Facebook</option>
+                        <option value="Zalo" {% if social.name == "Zalo" %}selected{% endif %}>Zalo</option>
+                        <option value="TikTok" {% if social.name == "TikTok" %}selected{% endif %}>TikTok</option>
+                    </select>
+                    <input type="text" name="social_link[]" value="{{ social.link }}">
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" id="addSocialRow" class="btn-sm-outline" style="margin-bottom:15px; width: 100%;">+ Thêm mạng xã hội</button>
+            <div class="modal-actions" style="display:flex; gap:10px;">
+                <button type="button" class="btn btn-secondary btn-cancel" style="flex:1">Hủy</button>
+                <button type="submit" class="btn btn-primary" style="flex:1">Lưu tất cả</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Quản lý Modal chung
+    function setupModal(btnId, modalId) {
+        const btn = document.getElementById(btnId);
+        const modal = document.getElementById(modalId);
+        if (!btn || !modal) return;
+        
+        btn.onclick = (e) => { e.preventDefault(); modal.classList.add('active'); };
+        modal.querySelectorAll('.modal-close, .btn-cancel').forEach(el => {
+            el.onclick = () => modal.classList.remove('active');
+        });
+        window.onclick = (e) => { if (e.target == modal) modal.classList.remove('active'); };
+    }
+
+    setupModal('openEditProfileBtn', 'editProfileModal');
+    setupModal('setupModal', 'editProfileModal'); // Sửa lại logic gọi
+    setupModal('openChangePasswordBtn', 'changePasswordModal');
+    setupModal('openPrivacyBtn', 'privacyModal');
+    setupModal('openEditExtraBtn', 'editExtraModal');
+
+    // 2. Thêm/Xóa dòng MXH
+    const container = document.getElementById('socialInputsContainer');
+    const addBtn = document.getElementById('addSocialRow');
+    if(addBtn) {
+        addBtn.onclick = () => {
+            const div = document.createElement('div');
+            div.className = 'social-box';
+            div.innerHTML = `
+                <button type="button" class="btn-remove-row">×</button>
+                <select name="social_name[]"><option value="Facebook">Facebook</option><option value="Zalo">Zalo</option><option value="TikTok">TikTok</option></select>
+                <input type="text" name="social_link[]" placeholder="Dán link tại đây...">`;
+            container.appendChild(div);
+        };
+    }
+    if(container) {
+        container.onclick = (e) => { if(e.target.classList.contains('btn-remove-row')) e.target.closest('.social-box').remove(); };
+    }
+
+    // 3. Hàm Xử lý AJAX - FIX LỖI 100%
+    function handleForm(formId, url, isJson = false) {
+        const form = document.getElementById(formId);
+        if(!form) return;
+        
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            let body;
+            let headers = { 'X-CSRFToken': '{{ csrf_token }}' };
+
+            if(isJson) {
+                headers['Content-Type'] = 'application/json';
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                
+                // Chỉ gán checkbox nếu field đó tồn tại trong form hiện tại (Tránh lỗi undefined)
+                const hpField = form.querySelector('input[name="hide_phone"]');
+                const hgField = form.querySelector('input[name="hide_gmail"]');
+                if (hpField) data.hide_phone = hpField.checked;
+                if (hgField) data.hide_gmail = hgField.checked;
+                
+                body = JSON.stringify(data);
+            } else {
+                body = new FormData(form);
+            }
+
+            fetch(url, { method: 'POST', headers: headers, body: body })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    location.reload();
+                } else {
+                    // Hiển thị thông báo lỗi chi tiết từ backend
+                    const msg = data.errors ? JSON.stringify(data.errors) : (data.message || "Lỗi cập nhật");
+                    alert(msg);
+                }
+            })
+            .catch(err => alert("Lỗi kết nối Server!"));
+        };
+    }
+
+    // Đăng ký các Form xử lý AJAX
+    handleForm('editProfileForm', "{% url 'update-profile-ajax' %}", true);
+    handleForm('changePasswordForm', "{% url 'change-password-ajax' %}");
+    handleForm('privacyForm', "{% url 'update_privacy' %}", true);
+    handleForm('editExtraForm', "{% url 'update_extra' %}");
+});
+</script>
+{% endblock %}
