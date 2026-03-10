@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.utils.text import slugify
 from django.db import models, transaction, IntegrityError
 from django.views.decorators.csrf import csrf_exempt
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import (
     Truyen, Genre, Comment, Chuong, LichSuDoc, Volume,
     Follow, Rating, CommentLike, CommentReply, Notification, Bookmark,Profile ,SocialLink
@@ -1146,49 +1147,64 @@ def pin_comment_ajax(request, comment_id):
 # 14. TÌM KIẾM TRUYỆN
 # =========================
 
+
 def search_view(request):
-    """Trang tìm kiếm truyện"""
+    """Trang tìm kiếm truyện - Chuyên gia tối ưu"""
     query = request.GET.get('q', '').strip()
-    
-    # Filters
     tac_gia = request.GET.get('tac_gia', '').strip()
     trang_thai = request.GET.get('trang_thai', '')
+    story_type = request.GET.get('story_type', '')
     genres = request.GET.getlist('genres')
+    page = request.GET.get('page', 1) # Lấy số trang hiện tại
     
-    # Base queryset
-    truyens = Truyen.objects.all()
+    # Base queryset: Sắp xếp theo ID giảm dần để kết quả phân trang không bị đảo lộn
+    truyens = Truyen.objects.all().order_by('-id')
     
-    # Text search
+    # 1. Tìm kiếm theo văn bản (Đã bỏ mô tả để tránh nhiễu)
     if query:
         truyens = truyens.filter(
             models.Q(ten__icontains=query) | 
-            models.Q(tac_gia__icontains=query) |
-            models.Q(mo_ta__icontains=query)
+            models.Q(tac_gia__icontains=query)
         )
     
-    # Filter by tác giả
+    # 2. Lọc theo tác giả (nếu người dùng nhập ô filter riêng)
     if tac_gia:
         truyens = truyens.filter(tac_gia__icontains=tac_gia)
     
-    # Filter by trang thái
+    # 3. Lọc theo trạng thái (ongoing, hoan-thanh, tam-dung)
     if trang_thai:
         truyens = truyens.filter(trang_thai=trang_thai)
     
-    # Filter by genres
+    # 4. Lọc theo thể loại (ManyToMany)
     if genres:
-        truyens = truyens.filter(genres__slug__in=genres).distinct()
+        for genre_slug in genres:
+            truyens = truyens.filter(genres__slug=genre_slug)       
+        truyens = truyens.distinct()
     
-    # Get all genres for filter
-    all_genres = Genre.objects.all()
+    # --- PHẦN PHÂN TRANG (PAGINATION) ---
+    items_per_page = 20 # Số truyện mỗi trang
+    paginator = Paginator(truyens, items_per_page)
+    
+    try:
+        truyens_paginated = paginator.page(page)
+    except PageNotAnInteger:
+        # Nếu ?page=abc không phải số, về trang 1
+        truyens_paginated = paginator.page(1)
+    except EmptyPage:
+        # Nếu ?page=999 vượt quá giới hạn, về trang cuối
+        truyens_paginated = paginator.page(paginator.num_pages)
+    
+    # Lấy danh sách thể loại (chỉ lấy field cần thiết để tiết kiệm RAM)
+    all_genres = Genre.objects.only('id', 'name', 'slug')
     
     context = {
         'query': query,
-        'truyens': truyens,
+        'truyens': truyens_paginated, # Trả về đối tượng đã phân trang
         'all_genres': all_genres,
         'tac_gia_filter': tac_gia,
         'trang_thai_filter': trang_thai,
         'genres_filter': genres,
-        'count': truyens.count()
+        'total_count': paginator.count # Tổng số kết quả tìm thấy
     }
     
     return render(request, 'doctruyen/search.html', context)

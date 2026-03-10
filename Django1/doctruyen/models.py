@@ -740,4 +740,48 @@ class Bookmark(models.Model):
         return f"{self.user.username} bookmark {self.chuong}"
 
 
+# =========================
+# 14. BÁO CÁO VI PHẠM (REPORT)
+# =========================
+class Report(models.Model):
+    REPORT_STATUS = [
+        ('pending', 'Chờ xử lý'),
+        ('resolved', 'Đã xử lý'),
+        ('rejected', 'Đã bác bỏ'),
+    ]
 
+    user_report = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name="reports_sent"
+    )
+    truyen = models.ForeignKey(
+        Truyen, 
+        on_delete=models.CASCADE, 
+        related_name="reports"
+    )
+    # Có thể báo cáo toàn bộ truyện hoặc chỉ 1 chương cụ thể
+    chuong = models.ForeignKey(
+        Chuong, 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True
+    )
+    
+    ly_do = models.TextField(help_text="Lý do vi phạm (Nội dung thô tục, bản quyền, v.v.)")
+    trang_thai = models.CharField(
+        max_length=20, 
+        choices=REPORT_STATUS, 
+        default='pending'
+    )
+    ghi_chu_admin = models.TextField(blank=True, null=True, help_text="Phản hồi từ admin")
+    ngay_tao = models.DateTimeField(auto_now_add=True)
+    ngay_cap_nhat = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-ngay_tao"]
+        verbose_name = "Báo cáo vi phạm"
+        verbose_name_plural = "Các báo cáo vi phạm"
+
+    def __str__(self):
+        return f"Báo cáo: {self.truyen.ten} - {self.get_trang_thai_display()}"

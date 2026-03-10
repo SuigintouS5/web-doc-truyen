@@ -22,6 +22,8 @@
     display: grid;
     grid-template-columns: 250px 1fr;
     gap: 30px;
+    align-items: start;
+    overflow: visible;
 }
 
 /* Filter Sidebar */
@@ -32,7 +34,9 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     height: fit-content;
     position: sticky;
-    top: 80px;
+    top: 100px;
+    z-index: 10;
+    align-self: start;
 }
 
 .filter-section {
@@ -215,7 +219,8 @@
     }
 
     .search-filter {
-        position: static;
+        position: sticky;
+        top: 100px;
     }
 }
 
@@ -231,5 +236,100 @@
 
     .search-filter {
         padding: 16px;
+    }
+}
+
+/* --- FIX CHUYÊN BIỆT: BẬT NGƯỢC LÊN TRÊN (POP-UP UP) --- */
+.genre-dropdown-container {
+    position: relative;
+    width: 100%;
+    margin-top: 5px;
+}
+
+.btn-genre-toggle {
+    width: 100%;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+}
+
+.genre-dropdown-content {
+    display: none;
+    position: absolute;
+    /* THAY ĐỔI QUAN TRỌNG: Đẩy bảng lên trên thay vì xuống dưới */
+    bottom: calc(100% + 10px); 
+    left: 0;
+    
+    width: 450px; 
+    background: #fff;
+    border: 1px solid #ddd;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.2); /* Đổ bóng ngược lên trên */
+    z-index: 9999;
+    padding: 15px;
+    border-radius: 8px;
+    
+    flex-direction: column;
+}
+
+.genre-dropdown-content.show {
+    display: flex;
+}
+
+/* Chia 3 cột để bảng không quá cao */
+.genre-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px 10px;
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.filter-item {
+    display: flex;
+    align-items: center;
+}
+
+.filter-item label {
+    font-size: 12px;
+    margin-left: 5px;
+    cursor: pointer;
+}
+
+/* Footer chứa nút bấm */
+.genre-footer {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-apply-genre {
+    background: #111;
+    color: #fff;
+    border: none;
+    padding: 7px 20px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Responsive cho mobile */
+@media (max-width: 500px) {
+    .genre-dropdown-content {
+        width: 300px;
+        left: -10px; /* Căn chỉnh nhẹ để không tràn lề trái */
+    }
+    .genre-grid {
+        grid-template-columns: 1fr 1fr;
     }
 }
