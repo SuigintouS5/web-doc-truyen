@@ -28,7 +28,7 @@
                   <span class="star" data-value="{{ i }}">★</span>
                 {% endfor %}
               </div>
-              <p class="rating-hint">Click để đánh giá</p>
+              <p class="rating-hint rating-hint-hidden">Click để đánh giá</p>
             </div>
             {% endif %}
             
@@ -55,11 +55,12 @@
             {% endif %}
 
             <div class="story-actions">
-              <a href="{% url 'read-now' truyen.slug %}" class="btn-primary" id="readNowBtn">▶ Đọc ngay</a>
-              <button class="btn-outline" id="followBtn">♡ Theo dõi</button>
+              <a href="{% url 'read-now' truyen.slug %}" class="btn-action-uniform btn-primary-green" id="readNowBtn">▶ Đọc ngay</a>
+              <button class="btn-action-uniform btn-outline-green" id="followBtn">♡ Theo dõi</button>
               {% if can_edit %}
-              <a href="{% url 'truyen-edit' truyen.slug %}" class="btn-edit-red">Chỉnh sửa</a>
+              <a href="{% url 'truyen-edit' truyen.slug %}" class="btn-action-uniform btn-edit-red">Chỉnh sửa</a>
               {% endif %}
+              <button class="btn-action-uniform btn-report-gray" onclick="openReportModal()">⚑ Báo cáo</button>
             </div>
           </div>
         </div>
@@ -76,11 +77,13 @@
             {% if user.is_authenticated %}
             <form id="commentForm" class="comment-box">
               {% csrf_token %}
-              <textarea id="commentInput" name="noi_dung" placeholder="Nhập bình luận..."></textarea>
-              <button type="submit" class="btn-primary" style="margin-top: 10px; border: none; cursor: pointer;">Gửi</button>
+              <textarea id="commentInput" name="noi_dung" placeholder="Nhập bình luận của bạn..."></textarea>
+              <div style="text-align: right;">
+                <button type="submit" class="btn-primary-send">Gửi</button>
+              </div>
             </form>
             {% else %}
-            <p class="muted-text">Vui lòng <a href="#" onclick="document.getElementById('openAuth').click(); return false;">đăng nhập</a> để bình luận.</p>
+            <p class="muted-text-login">Vui lòng <a href="{% url 'user-login' %}">đăng nhập</a> để bình luận.</p>
             {% endif %}
             
             <div id="commentsList" class="comments-list">
@@ -115,20 +118,22 @@
         </div>
 
         <div class="sidebar-box">
-          <h4 class="sidebar-title">Mục lục</h4>
+          <h4 class="sidebar-title">📑 Mục lục</h4>
           <div class="volume-navigation">
             {% for volume in volumes %}
             <div class="volume-group">
               <div class="volume-label">
                 Vol {{ volume.so_volume }}
-                {% if volume.ten and volume.ten != volume.so_volume|stringformat:"s" and volume.ten != "Vol " %}
-                    - {{ volume.ten|cut:"Vol "|cut:"Vol" }}
-                {% endif %}
+                {% with vol_name=volume.ten|cut:"Vol "|cut:"Vol"|cut:"vol "|cut:"vol" %}
+                   {% if vol_name and vol_name|slugify != volume.so_volume|slugify %}
+                     - {{ vol_name }}
+                   {% endif %}
+                {% endwith %}
               </div>
               <ul class="chapter-list">
                 {% for c in volume.chuongs.all %}
                 <li>
-                  <a href="{% url 'chuong-detail' truyen.slug c.slug %}">
+                  <a href="{% url 'chuong-detail' truyen.slug c.slug %}" title="Chương {{ c.so_chuong }}: {{ c.ten }}">
                     Chương {{ c.so_chuong }}: {{ c.ten }}
                   </a>
                 </li>
@@ -148,6 +153,17 @@
   </div>
 </div>
 
+<div id="reportModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+        <h3>Báo cáo vi phạm</h3>
+        <textarea id="reportContent" placeholder="Mô tả lỗi chương hoặc nội dung vi phạm..."></textarea>
+        <div class="modal-btns">
+            <button onclick="closeReportModal()" class="btn-cancel">Hủy</button>
+            <button onclick="sendReport()" class="btn-confirm">Gửi báo cáo</button>
+        </div>
+    </div>
+</div>
+
 <script>
 function getCookie(name) {
     let cookieValue = null;
@@ -164,10 +180,139 @@ function getCookie(name) {
     return cookieValue;
 }
 
-const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
+const csrfToken = getCookie('csrftoken');
 const isAuthenticated = '{{ user.is_authenticated }}' === 'True';
 const truyen_id = parseInt('{{ truyen.id }}');
 
+// --- BÁO CÁO (ĐÃ KHỚP URL ADMIN) ---
+function openReportModal() {
+    if (!isAuthenticated) return alert("Vui lòng đăng nhập để báo cáo!");
+    document.getElementById('reportModal').style.display = 'flex';
+}
+function closeReportModal() { document.getElementById('reportModal').style.display = 'none'; }
+function sendReport() {
+    const content = document.getElementById('reportContent').value.trim();
+    if (!content) return alert("Vui lòng nhập nội dung!");
+    
+    // Đã sửa lại URL cho khớp với urls.py admin của bạn
+    fetch(`/admin-tong/api-gui-bao-cao/${truyen_id}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ noi_dung: content })
+    })
+    .then(r => r.json()).then(data => {
+        if(data.status === 'success') {
+            alert("Cảm ơn! Báo cáo của bạn đã được gửi đi.");
+            closeReportModal();
+            document.getElementById('reportContent').value = '';
+        } else {
+            alert("Có lỗi xảy ra: " + data.message);
+        }
+    }).catch(() => { 
+        alert("Lỗi kết nối server!"); 
+    });
+}
+
+// --- BÌNH LUẬN ---
+function loadComments() {
+    const commentsList = document.getElementById('commentsList');
+    fetch(`/truyen/${truyen_id}/get-comments/`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.comments || data.comments.length === 0) {
+                commentsList.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Chưa có bình luận nào</p>';
+                return;
+            }
+            commentsList.innerHTML = data.comments.map(comment => `
+                <div class="comment-item ${comment.is_pinned ? 'pinned' : ''}" id="comment-${comment.id}">
+                    <div class="comment-header">
+                        <div class="comment-avatar-container">
+                             <img src="${comment.avatar}" class="comment-avatar">
+                        </div>
+                        <div class="comment-info">
+                            <div class="comment-author">
+                                <span class="username">${comment.username}</span>
+                                ${comment.is_pinned ? '<span class="badge-pin">📌 Đã ghim</span>' : ''}
+                                <span class="comment-loc">• ${comment.chuong_ten}</span>
+                            </div>
+                            <div class="comment-date">${comment.ngay_tao}</div>
+                        </div>
+                    </div>
+                    <div class="comment-body">${comment.noi_dung}</div>
+                    <div class="comment-actions">
+                        <span class="act-btn ${comment.user_liked ? 'liked' : ''}" onclick="likeComment(${comment.id})">👍 ${comment.total_likes}</span>
+                        <span class="act-btn" onclick="toggleReplyForm(${comment.id})">💬 Phản hồi</span>
+                        ${comment.can_pin ? `<span class="act-btn" onclick="pinComment(${comment.id})">${comment.is_pinned ? 'Bỏ ghim' : 'Ghim'}</span>` : ''}
+                        ${comment.can_delete ? `<span class="act-btn del-btn" onclick="deleteComment(${comment.id})">Xóa</span>` : ''}
+                    </div>
+                    <div class="replies-container">
+                        ${comment.replies.map(reply => `
+                            <div class="reply-item" id="comment-${reply.id}">
+                                <div class="reply-avatar-container">
+                                    <img src="${reply.avatar}" class="reply-avatar">
+                                </div>
+                                <div class="reply-content" style="width: 100%;">
+                                    <div class="reply-user">
+                                        <b>${reply.username}</b> 
+                                        <small>${reply.ngay_tao}</small>
+                                    </div>
+                                    <div class="reply-text">${reply.noi_dung}</div>
+                                    <div class="comment-actions" style="padding-left: 0; margin-top: 5px;">
+                                        ${reply.can_delete ? `<span class="act-btn del-btn" style="font-size: 13px;" onclick="deleteComment(${reply.id})">Xóa</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div id="reply-form-${comment.id}" class="reply-form-box" style="display: none;">
+                        <textarea id="reply-input-${comment.id}" placeholder="Viết phản hồi..."></textarea>
+                        <button onclick="sendReply(${comment.id})" class="btn-send-reply">Gửi</button>
+                    </div>
+                </div>
+            `).join('');
+        });
+}
+
+function likeComment(id) {
+    if (!isAuthenticated) return alert("Vui lòng đăng nhập!");
+    fetch(`/comment/${id}/like/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
+    .then(r => r.json()).then(data => { if (data.status === 'success') loadComments(); });
+}
+
+function toggleReplyForm(id) {
+    if (!isAuthenticated) return alert("Vui lòng đăng nhập!");
+    const f = document.getElementById(`reply-form-${id}`);
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+function sendReply(commentId) {
+    const input = document.getElementById(`reply-input-${commentId}`);
+    const content = input.value.trim();
+    if (!content) return;
+    fetch(`/comment/${commentId}/reply/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ noi_dung: content })
+    })
+    .then(r => r.json()).then(data => {
+        if (data.status === 'success') { input.value = ''; loadComments(); }
+        else { alert(data.message); }
+    });
+}
+
+function deleteComment(id) {
+    if (confirm("Bạn có chắc muốn xóa bình luận này?")) {
+        fetch(`/comment/${id}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
+        .then(r => r.json()).then(data => { if (data.status === 'success') loadComments(); });
+    }
+}
+
+function pinComment(id) {
+    fetch(`/comment/${id}/pin/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
+    .then(r => r.json()).then(data => { if (data.status === 'success') loadComments(); });
+}
+
+// --- RATING ---
 function updateStarDisplay(diem) {
   const stars = document.querySelectorAll('#ratingStars .star');
   stars.forEach((star, idx) => {
@@ -180,8 +325,7 @@ function initRating() {
   const ratingStars = document.getElementById('ratingStars');
   if (!ratingStars || !isAuthenticated) return;
   fetch(`/truyen/${truyen_id}/get-rating/`)
-    .then(r => r.json())
-    .then(data => { if (data.diem > 0) updateStarDisplay(data.diem); });
+    .then(r => r.json()).then(data => { if (data.diem > 0) updateStarDisplay(data.diem); });
   ratingStars.querySelectorAll('.star').forEach(star => {
     star.addEventListener('click', function() {
       const diem = this.dataset.value;
@@ -190,8 +334,7 @@ function initRating() {
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
         body: JSON.stringify({ diem: diem })
       })
-      .then(r => r.json())
-      .then(data => {
+      .then(r => r.json()).then(data => {
         if (data.status === 'success') {
           document.getElementById('ratingValue').textContent = data.diem_trung_binh;
           document.getElementById('ratingCount').textContent = data.so_luong;
@@ -201,71 +344,31 @@ function initRating() {
     });
     star.addEventListener('mouseenter', function() { updateStarDisplay(this.dataset.value); });
   });
-  ratingStars.addEventListener('mouseleave', function() {
-    fetch(`/truyen/${truyen_id}/get-rating/`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.diem > 0) updateStarDisplay(data.diem);
-        else document.querySelectorAll('#ratingStars .star').forEach(s => s.classList.remove('active'));
-      });
+  ratingStars.addEventListener('mouseleave', () => {
+      fetch(`/truyen/${truyen_id}/get-rating/`)
+        .then(r => r.json()).then(data => updateStarDisplay(data.diem || 0));
   });
 }
 
-function loadComments() {
-  const commentsList = document.getElementById('commentsList');
-  fetch(`/truyen/${truyen_id}/get-comments/`)
-    .then(r => r.json())
-    .then(data => {
-      if (!data.comments || data.comments.length === 0) {
-        commentsList.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Chưa có bình luận nào</p>';
-        return;
-      }
-      commentsList.innerHTML = data.comments.map(comment => `
-        <div style="border-bottom: 1px solid #eee; padding: 15px 0;">
-          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <img src="${comment.avatar}" alt="${comment.username}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-            <div style="flex: 1;">
-              <div style="font-weight: 600; font-size: 14px;">${comment.username}</div>
-              <div style="font-size: 12px; color: #999;">${comment.ngay_tao}</div>
-            </div>
-          </div>
-          <div style="font-size: 14px; line-height: 1.5; margin-bottom: 10px;">${comment.noi_dung}</div>
-          <div style="font-size: 12px; color: #999;">👍 ${comment.total_likes}</div>
-        </div>
-      `).join('');
-    });
-}
-
 document.addEventListener('DOMContentLoaded', function () {
-  // Load comments on page load
   loadComments();
+  initRating();
   
-  // Handle comment form submission
   const commentForm = document.getElementById('commentForm');
   if (commentForm) {
     commentForm.addEventListener('submit', function(e) {
       e.preventDefault();
       const textarea = document.getElementById('commentInput');
       const content = textarea.value.trim();
-      if (!content) {
-        alert('Vui lòng nhập bình luận');
-        return;
-      }
+      if (!content) return;
       fetch(`/truyen/${truyen_id}/add-comment/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
         body: JSON.stringify({ noi_dung: content })
       })
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === 'success') {
-          textarea.value = '';
-          loadComments();
-        } else {
-          alert(data.message || 'Không thể gửi bình luận');
-        }
-      })
-      .catch(err => alert('Lỗi: '+err.message));
+      .then(r => r.json()).then(data => {
+        if (data.status === 'success') { textarea.value = ''; loadComments(); }
+      });
     });
   }
 
@@ -277,7 +380,7 @@ document.addEventListener('DOMContentLoaded', function () {
       btn.innerText = desc.classList.contains('expanded') ? 'Thu gọn' : 'Xem thêm';
     });
   }
-  initRating();
+
   const followBtn = document.getElementById('followBtn');
   if (followBtn && isAuthenticated) {
     fetch(`/truyen/${truyen_id}/is-following/`).then(r => r.json()).then(data => {
@@ -295,73 +398,78 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <style>
-/* BADGES & STATUS */
-.badge-custom { display: inline-block; padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; border: 1px solid transparent; }
-.badge-ongoing, .badge-dang_ra { background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
-.badge-completed, .badge-hoan_thanh { background-color: #dcfce7; color: #15803d; border-color: #bbf7d0; }
-.badge-onhold, .badge-tam_ngung { background-color: #fef3c7; color: #92400e; border-color: #fde68a; }
-.badge-type { background-color: #f3f4f6; color: #374151; border-color: #d1d5db; }
-.story-status-row { display: flex; gap: 10px; margin: 15px 0; align-items: center; }
-
-/* RATING */
-.stars { display: flex; gap: 8px; margin-bottom: 5px; }
-.star { font-size: 28px; cursor: pointer; color: #ddd; transition: color 0.2s; }
-.star.active { color: #ffc107; }
-.rating-hint { font-size: 12px; color: #999; }
+/* --- THỐNG NHẤT NÚT BẤM --- */
+.story-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; align-items: center; }
+.btn-action-uniform {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 42px; padding: 0 20px; font-size: 14px; font-weight: 600;
+    border-radius: 8px; cursor: pointer; transition: all 0.2s ease;
+    text-decoration: none !important; border: none; box-sizing: border-box; white-space: nowrap;
+}
+.btn-primary-green { background-color: #2ecc71; color: white !important; }
+.btn-outline-green { background: transparent; border: 2px solid #2ecc71; color: #2ecc71; }
+.btn-edit-red { background-color: #ff4757; color: white !important; }
+.btn-report-gray { background-color: #f1f5f9; color: #64748b; margin-left: auto; }
 #followBtn.following { background: #ef4444; color: white; border-color: #ef4444; }
 
-/* DESCRIPTION */
+/* --- AVATAR ÉP TRÒN --- */
+.comment-avatar-container, .reply-avatar-container, .translator-avatar-wrapper {
+    width: 48px; height: 48px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #eee;
+}
+.comment-avatar, .reply-avatar, .translator-avatar-img { 
+    width: 100%; height: 100%; object-fit: cover; display: block; 
+}
+.reply-avatar-container { width: 36px; height: 36px; }
+
+/* --- RATING HINT --- */
+.story-rating-input { position: relative; margin-bottom: 10px; }
+.rating-hint-hidden { 
+    opacity: 0; transition: 0.3s; pointer-events: none; 
+    margin: 5px 0 0 0; color: #2ecc71; font-size: 12px;
+}
+.story-rating-input:hover .rating-hint-hidden { opacity: 1; }
+
+/* --- MODAL --- */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; }
+.modal-content textarea { width: 100%; height: 100px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin: 15px 0; resize: none; box-sizing: border-box; }
+.modal-btns { display: flex; justify-content: flex-end; gap: 10px; }
+.btn-cancel { background: #eee; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
+.btn-confirm { background: #ff4757; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
+
+/* --- CẤU TRÚC PHỤ --- */
+.translator-card { background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); margin-bottom: 25px; }
+.translator-header { display: flex; align-items: center; gap: 15px; }
+.translator-avatar-wrapper { width: 80px; height: 80px; }
+.user-link { font-size: 18px; font-weight: 700; color: #2c3e50; text-decoration: none; }
+.sidebar-box { background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); margin-top: 20px; }
+.volume-label { font-weight: 700; font-size: 14px; color: #2ecc71; background: #f0fff4; padding: 6px 12px; border-radius: 6px; border-left: 4px solid #2ecc71; margin-bottom: 8px; }
+.chapter-list { list-style: none; padding: 0; }
+.chapter-list a { display: block; padding: 10px 8px; color: #4a5568; text-decoration: none; transition: 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chapter-list a:hover { background: #f8fafc; color: #2ecc71; padding-left: 15px; }
+.star { font-size: 28px; cursor: pointer; color: #ddd; }
+.star.active { color: #ffc107; }
 .story-description-text { max-height: 150px; overflow: hidden; transition: max-height 0.3s ease; }
 .story-description-text.expanded { max-height: none; }
-.read-more { cursor: pointer; color: #2ecc71; font-weight: 600; font-size: 14px; margin-top: 5px; display: inline-block; }
+.read-more { cursor: pointer; color: #2ecc71; font-weight: 600; margin-top: 5px; display: inline-block; }
+.comment-item { padding: 20px 0; border-bottom: 1px solid #f0f0f0; }
+.comment-header { display: flex; gap: 12px; margin-bottom: 10px; }
+.comment-body { font-size: 16px; color: #2c3e50; padding-left: 60px; margin-bottom: 10px; }
+.comment-actions { padding-left: 60px; display: flex; gap: 15px; font-size: 13px; color: #64748b; }
+.act-btn { cursor: pointer; }
+.act-btn.liked { color: #2ecc71; font-weight: bold; }
+.replies-container { margin-left: 60px; margin-top: 15px; background: #f8f9fa; border-radius: 8px; padding: 10px; }
+.reply-item { display: flex; gap: 10px; margin-bottom: 10px; }
+.btn-primary-send { background: #2ecc71; color: white; border: none; padding: 8px 25px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+.muted-text-login { text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; }
 
-/* TRANSLATOR CARD & AVATAR FIX */
-.translator-card { margin-bottom: 20px; }
-.translator-header { display: flex; align-items: center; padding: 12px; background: #fff; border-radius: 10px; border: 1px solid #eee; }
-.translator-avatar-wrapper { 
-    width: 45px; 
-    height: 45px; 
-    border-radius: 50%; 
-    overflow: hidden; 
-    margin-right: 12px; 
-    border: 1px solid #eee; 
-    flex-shrink: 0; 
+.story-status-row { display: flex; gap: 10px; margin: 15px 0; align-items: center; }
+.badge-custom {
+    display: inline-block; padding: 6px 14px; border-radius: 8px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    border: 1px solid transparent; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
-.translator-avatar-img { 
-    width: 100%; 
-    height: 100%; 
-    object-fit: cover; 
-    display: block; 
-}
-.translator-name { display: flex; flex-direction: column; }
-.label-posted { font-size: 11px; color: #888; text-transform: uppercase; font-weight: bold; }
-.user-link { text-decoration: none; color: #2c3e50; font-weight: 700; font-size: 15px; }
-
-/* NÚT CHỈNH SỬA MÀU ĐỎ (LOẠI BỎ ICON) */
-.btn-edit-red { 
-    display: inline-block;
-    padding: 10px 20px;
-    background-color: #ef4444; 
-    color: white; 
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 14px;
-    transition: background 0.2s ease;
-}
-.btn-edit-red:hover {
-    background-color: #dc2626;
-    color: white;
-}
-
-/* MỤC LỤC */
-.volume-navigation { max-height: 800px; overflow-y: auto; }
-.volume-group { margin-bottom: 20px; }
-.volume-label { font-weight: 700; font-size: 0.95rem; padding: 8px 0; border-bottom: 2px solid #f0f0f0; margin-bottom: 8px; color: #333; }
-.chapter-list { list-style: none; padding: 0; margin: 0; }
-.chapter-list li { border-bottom: 1px dotted #eee; }
-.chapter-list a { display: block; padding: 8px 5px; color: #555; text-decoration: none; font-size: 0.9rem; }
-.empty-chapter { padding: 5px; font-size: 0.85rem; color: #999; list-style: none; }
-.story-genres h4 { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 8px; }
+.badge-dang_ra, .badge-ongoing, .badge-dang_cap_nhat { background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+.badge-type { background-color: #f3f4f6; color: #151514; border-color: #d1d5db; }
 </style>
 {% endblock %}

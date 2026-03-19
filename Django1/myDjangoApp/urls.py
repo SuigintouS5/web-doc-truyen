@@ -16,13 +16,18 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('doctruyen.urls')),  # kết nối app doctruyen
-]
-
 from django.conf import settings
 from django.conf.urls.static import static
 
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns = [
+    path('admin/', admin.site.urls), # Admin mặc định (xanh dương)
+    
+    # Kết nối app Admin Tổng của bạn
+    path('admin-tong/', include('admin_all.urls')), 
+    
+    # Kết nối app truyện hiện tại
+    path('', include('doctruyen.urls')), 
+]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

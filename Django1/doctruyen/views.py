@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.utils.text import slugify
 from django.db import models, transaction, IntegrityError
 from django.views.decorators.csrf import csrf_exempt
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import (
     Truyen, Genre, Comment, Chuong, LichSuDoc, Volume,
     Follow, Rating, CommentLike, CommentReply, Notification, Bookmark,Profile ,SocialLink
@@ -30,7 +31,7 @@ def truyen_detail(request, slug):
     can_edit = False
     if request.user.is_authenticated:
         can_edit = (request.user == truyen.author or 
-                    request.user in truyen.editors.all() or 
+                    request.user in truyen.collaborators.all() or 
                     request.user.is_staff)
 
     return render(request, 'doctruyen/truyen_detail.html', {
@@ -99,7 +100,7 @@ def add_volume_ajax(request, truyen_id):
         return JsonResponse({"status": "error", "message": "Phương thức không hỗ trợ"}, status=405)
     
     truyen = get_object_or_404(Truyen, id=truyen_id)
-    if not (request.user == truyen.author or request.user in truyen.editors.all() or request.user.is_staff):
+    if not (request.user == truyen.author or request.user in truyen.collaborators.all() or request.user.is_staff):
         return JsonResponse({"status": "error", "message": "Không có quyền"}, status=403)
     
     try:
@@ -118,7 +119,7 @@ def edit_volume_ajax(request, volume_id):
     vol = get_object_or_404(Volume, id=volume_id)
     # quyền: tác giả, editor hoặc staff
     if not (request.user == vol.truyen.author or
-            request.user in vol.truyen.editors.all() or
+            request.user in vol.truyen.collaborators.all() or
             request.user.is_staff):
         return JsonResponse({"status": "error", "message": "Không có quyền"}, status=403)
 
@@ -146,7 +147,7 @@ def reorder_volumes(request):
             for idx, vol_id in enumerate(order, start=1):
                 vol = get_object_or_404(Volume, id=vol_id)
                 if not (request.user == vol.truyen.author or
-                        request.user in vol.truyen.editors.all() or
+                        request.user in vol.truyen.collaborators.all() or
                         request.user.is_staff):
                     return JsonResponse({'status': 'error', 'message': 'Không có quyền'}, status=403)
                 vol.so_volume = idx
@@ -163,7 +164,7 @@ def delete_volume_ajax(request, volume_id):
     vol = get_object_or_404(Volume, id=volume_id)
     # quyền: tác giả, editor hoặc staff
     if not (request.user == vol.truyen.author or
-            request.user in vol.truyen.editors.all() or
+            request.user in vol.truyen.collaborators.all() or
             request.user.is_staff):
         return JsonResponse({"status": "error", "message": "Không có quyền"}, status=403)
     
@@ -176,7 +177,7 @@ def add_chapter_ajax(request, volume_id):
     vol = get_object_or_404(Volume, id=volume_id)
     # chỉ tác giả, editor hoặc staff có quyền thêm chương
     if not (request.user == vol.truyen.author or
-            request.user in vol.truyen.editors.all() or
+            request.user in vol.truyen.collaborators.all() or
             request.user.is_staff):
         return JsonResponse({"status": "error", "message": "Không có quyền"}, status=403)
 
@@ -233,7 +234,7 @@ def edit_chapter_ajax(request, chapter_id):
     c = get_object_or_404(Chuong, id=chapter_id)
     # quyền: tác giả, editor hoặc staff
     if not (request.user == c.volume.truyen.author or
-            request.user in c.volume.truyen.editors.all() or
+            request.user in c.volume.truyen.collaborators.all() or
             request.user.is_staff):
         return JsonResponse({"status": "error", "message": "Không có quyền"}, status=403)
 
@@ -267,7 +268,7 @@ def reorder_chapters(request):
             for idx, chuong_id in enumerate(order, start=1):
                 ch = get_object_or_404(Chuong, id=chuong_id)
                 if not (request.user == ch.volume.truyen.author or
-                        request.user in ch.volume.truyen.editors.all() or
+                        request.user in ch.volume.truyen.collaborators.all() or
                         request.user.is_staff):
                     return JsonResponse({'status': 'error', 'message': 'Không có quyền'}, status=403)
                 ch.so_chuong = idx + total
@@ -291,7 +292,7 @@ def delete_chapter_ajax(request, chapter_id):
     
     # Kiểm tra quyền: tác giả, editor hoặc staff
     if not (c.volume.truyen.author == request.user or
-            request.user in c.volume.truyen.editors.all() or
+            request.user in c.volume.truyen.collaborators.all() or
             request.user.is_staff):
         return JsonResponse({"status": "error", "message": "Không có quyền"}, status=403)
     
@@ -330,12 +331,12 @@ def profile_view(request , username=None):
             return redirect('user-login')
         display_user = request.user
     truyen_dang = display_user.truyen_da_dang.all()
-    truyen_edit = display_user.truyen_duoc_uy_quyen.all()
+    truyen_edit = display_user.truyen_hop_tac.all()
     is_owner = (request.user == display_user)
     return render(request, 'doctruyen/profile.html', {
         'display_user': display_user,
         'truyen_dang': display_user.truyen_da_dang.all(),
-        'truyen_edit': display_user.truyen_duoc_uy_quyen.all(),
+        'truyen_edit': display_user.truyen_hop_tac.all(),
         'is_owner': is_owner, 
     })
 
@@ -392,7 +393,7 @@ def truyen_edit(request, slug):
     
     # KIỂM TRA QUYỀN: Chỉ tác giả, editor hoặc admin mới được sửa
     can_edit = (request.user == truyen.author or 
-                request.user in truyen.editors.all() or 
+                request.user in truyen.collaborators.all() or 
                 request.user.is_staff)
     
     if not can_edit:
@@ -707,7 +708,6 @@ def add_comment_ajax(request, truyen_id):
 
 
 @login_required
-@login_required
 def like_comment_ajax(request, comment_id):
     """AJAX: Like/Unlike bình luận"""
     comment = get_object_or_404(Comment, id=comment_id)
@@ -861,18 +861,21 @@ def is_bookmarked_ajax(request, chuong_id):
 
 @login_required
 def get_notifications_ajax(request):
-    """AJAX: Lấy thông báo bình luận (bell icon)"""
-    notification_types = ['like_comment', 'reply_comment', 'mention_comment']
-    notifications = Notification.objects.filter(user=request.user, loai__in=notification_types).select_related('user_from', 'truyen', 'comment')
+    """AJAX: Lấy tất cả thông báo (bell + follow)."""
+    notifications = Notification.objects.filter(user=request.user).select_related('user_from', 'truyen', 'comment', 'chuong').order_by('-ngay_tao')
     
     notifications_data = []
     for notif in notifications:
         link = ''
-        if notif.comment and notif.truyen:
-            link = f"/truyen/{notif.truyen.slug}/"
-        elif notif.truyen:
-            link = f"/truyen/{notif.truyen.slug}/"
-        
+        if notif.loai in ['new_chapter', 'new_follow']:
+            if notif.chuong and notif.truyen:
+                link = f"/truyen/{notif.truyen.slug}/{notif.chuong.slug}/"
+            elif notif.truyen:
+                link = f"/truyen/{notif.truyen.slug}/"
+        else:
+            if notif.truyen:
+                link = f"/truyen/{notif.truyen.slug}/"
+
         notifications_data.append({
             'id': notif.id,
             'noi_dung': notif.noi_dung,
@@ -882,49 +885,35 @@ def get_notifications_ajax(request):
             'link': link
         })
     
-    return JsonResponse({'notifications': notifications_data})
+    unread_bell = Notification.objects.filter(user=request.user, loai__in=['like_comment', 'reply_comment', 'mention_comment'], da_doc=False).count()
+    unread_follow = Notification.objects.filter(user=request.user, loai__in=['new_chapter', 'new_follow'], da_doc=False).count()
+    return JsonResponse({
+        'notifications': notifications_data,
+        'unread_counts': {
+            'bell': unread_bell,
+            'follow': unread_follow,
+        }
+    })
 
 
 @login_required
 def get_follow_notifications_ajax(request):
-    """AJAX: Lấy thông báo follow (heart icon)"""
-    notification_types = ['new_chapter', 'new_follow']
-    notifications = Notification.objects.filter(user=request.user, loai__in=notification_types).select_related('user_from', 'truyen', 'chuong')
-    
-    notifications_data = []
-    for notif in notifications:
-        link = ''
-        if notif.chuong and notif.truyen:
-            link = f"/truyen/{notif.truyen.slug}/{notif.chuong.slug}/"
-        elif notif.truyen:
-            link = f"/truyen/{notif.truyen.slug}/"
-        
-        notifications_data.append({
-            'id': notif.id,
-            'noi_dung': notif.noi_dung,
-            'loai': notif.loai,
-            'da_doc': notif.da_doc,
-            'ngay_tao': notif.ngay_tao.strftime('%Y-%m-%d %H:%M'),
-            'link': link
-        })
-    
-    return JsonResponse({'notifications': notifications_data})
+    """AJAX: Lấy thông báo follow (heart icon). Deprecated - use get_notifications_ajax"""
+    return get_notifications_ajax(request)
 
 
 @login_required
 def count_unread_notifications_ajax(request):
-    """AJAX: Đếm thông báo chưa đọc (bell)"""
-    notification_types = ['like_comment', 'reply_comment', 'mention_comment']
-    count = Notification.objects.filter(user=request.user, loai__in=notification_types, da_doc=False).count()
-    return JsonResponse({'count': count})
+    """AJAX: Đếm thông báo chưa đọc (bell + follow)"""
+    unread_bell = Notification.objects.filter(user=request.user, loai__in=['like_comment', 'reply_comment', 'mention_comment'], da_doc=False).count()
+    unread_follow = Notification.objects.filter(user=request.user, loai__in=['new_chapter', 'new_follow'], da_doc=False).count()
+    return JsonResponse({'count': {'bell': unread_bell, 'follow': unread_follow}})
 
 
 @login_required
 def count_follow_notifications_ajax(request):
-    """AJAX: Đếm thông báo follow chưa đọc (heart)"""
-    notification_types = ['new_chapter', 'new_follow']
-    count = Notification.objects.filter(user=request.user, loai__in=notification_types, da_doc=False).count()
-    return JsonResponse({'count': count})
+    """AJAX: Đếm thông báo follow chưa đọc (heart). Deprecated - use count_unread_notifications_ajax"""
+    return count_unread_notifications_ajax(request)
 
 
 @login_required
@@ -999,8 +988,8 @@ def accept_notification_ajax(request, notification_id):
             return JsonResponse({'status': 'error', 'message': 'Truyện không tồn tại'}, status=404)
         old_owner = tr.author
         tr.author = notif.user
-        # Add old owner to editors so they can still edit
-        tr.editors.add(old_owner)
+        # Add old owner to collaborators so they can still edit
+        tr.collaborators.add(old_owner)
         tr.save()
         notif.status = 'ACCEPTED'
         notif.save()
@@ -1146,49 +1135,64 @@ def pin_comment_ajax(request, comment_id):
 # 14. TÌM KIẾM TRUYỆN
 # =========================
 
+
 def search_view(request):
-    """Trang tìm kiếm truyện"""
+    """Trang tìm kiếm truyện - Chuyên gia tối ưu"""
     query = request.GET.get('q', '').strip()
-    
-    # Filters
     tac_gia = request.GET.get('tac_gia', '').strip()
     trang_thai = request.GET.get('trang_thai', '')
+    story_type = request.GET.get('story_type', '')
     genres = request.GET.getlist('genres')
+    page = request.GET.get('page', 1) # Lấy số trang hiện tại
     
-    # Base queryset
-    truyens = Truyen.objects.all()
+    # Base queryset: Sắp xếp theo ID giảm dần để kết quả phân trang không bị đảo lộn
+    truyens = Truyen.objects.all().order_by('-id')
     
-    # Text search
+    # 1. Tìm kiếm theo văn bản (Đã bỏ mô tả để tránh nhiễu)
     if query:
         truyens = truyens.filter(
             models.Q(ten__icontains=query) | 
-            models.Q(tac_gia__icontains=query) |
-            models.Q(mo_ta__icontains=query)
+            models.Q(tac_gia__icontains=query)
         )
     
-    # Filter by tác giả
+    # 2. Lọc theo tác giả (nếu người dùng nhập ô filter riêng)
     if tac_gia:
         truyens = truyens.filter(tac_gia__icontains=tac_gia)
     
-    # Filter by trang thái
+    # 3. Lọc theo trạng thái (ongoing, hoan-thanh, tam-dung)
     if trang_thai:
         truyens = truyens.filter(trang_thai=trang_thai)
     
-    # Filter by genres
+    # 4. Lọc theo thể loại (ManyToMany)
     if genres:
-        truyens = truyens.filter(genres__slug__in=genres).distinct()
+        for genre_slug in genres:
+            truyens = truyens.filter(genres__slug=genre_slug)       
+        truyens = truyens.distinct()
     
-    # Get all genres for filter
-    all_genres = Genre.objects.all()
+    # --- PHẦN PHÂN TRANG (PAGINATION) ---
+    items_per_page = 20 # Số truyện mỗi trang
+    paginator = Paginator(truyens, items_per_page)
+    
+    try:
+        truyens_paginated = paginator.page(page)
+    except PageNotAnInteger:
+        # Nếu ?page=abc không phải số, về trang 1
+        truyens_paginated = paginator.page(1)
+    except EmptyPage:
+        # Nếu ?page=999 vượt quá giới hạn, về trang cuối
+        truyens_paginated = paginator.page(paginator.num_pages)
+    
+    # Lấy danh sách thể loại (chỉ lấy field cần thiết để tiết kiệm RAM)
+    all_genres = Genre.objects.only('id', 'name', 'slug')
     
     context = {
         'query': query,
-        'truyens': truyens,
+        'truyens': truyens_paginated, # Trả về đối tượng đã phân trang
         'all_genres': all_genres,
         'tac_gia_filter': tac_gia,
         'trang_thai_filter': trang_thai,
         'genres_filter': genres,
-        'count': truyens.count()
+        'total_count': paginator.count # Tổng số kết quả tìm thấy
     }
     
     return render(request, 'doctruyen/search.html', context)

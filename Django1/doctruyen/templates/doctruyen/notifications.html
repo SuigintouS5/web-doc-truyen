@@ -1,4 +1,4 @@
-{% extends 'doctruyen/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
@@ -48,7 +48,7 @@
   <h1 class="notifications-title">🔔 Thông báo</h1>
   {% if notifications %}
     {% for n in notifications %}
-    <div class="notification-item {% if not n.da_doc %}unread{% endif %}" data-id="{{ n.id }}">
+    <div class="notification-item {% if not n.da_doc %}unread{% endif %}" data-id="{{ n.id }}" data-link="{% if n.chuong and n.truyen %}{% url 'chuong-detail' truyen_slug=n.truyen.slug chuong_slug=n.chuong.slug %}{% elif n.truyen %}{% url 'truyen-detail' slug=n.truyen.slug %}{% else %}#{% endif %}">
       <div class="notification-badge {{ n.loai }}">
         {% if n.loai == 'transfer' %}⚡
         {% elif n.loai == 'share' %}👥
@@ -152,6 +152,30 @@ document.querySelectorAll('.btn-decline').forEach(btn => {
                 } else alert(data.message || 'Lỗi');
             }).catch(err=> alert('Lỗi: '+err.message));
     });
+});
+
+// Đánh dấu đọc khi bấm vào dòng thông báo
+const notifItems = document.querySelectorAll('.notification-item[data-id]');
+notifItems.forEach(item => {
+  item.addEventListener('click', function(e) {
+    if (e.target.closest('.btn-notif')) return; // không đánh dấu khi bấm accept/decline
+    const id = this.dataset.id;
+    const link = this.dataset.link;
+    const form = new FormData();
+    form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    fetch(`/notifications/${id}/read/`, { method: 'POST', body: form })
+      .then(() => {
+        if (link && link !== '#') {
+          window.location.href = link;
+        } else {
+          this.classList.remove('unread');
+        }
+      }).catch(() => {
+        if (link && link !== '#') {
+          window.location.href = link;
+        }
+      });
+  });
 });
 </script>
 {% endblock %}

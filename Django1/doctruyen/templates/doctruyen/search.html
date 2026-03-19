@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load query_transform %} 
 
 {% block title %}Tìm kiếm: {{ query }}{% endblock %}
 
@@ -17,56 +18,74 @@
                 Tìm kiếm truyện
             {% endif %}
         </h1>
-        <p class="search-result-count">{{ count }} truyện được tìm thấy</p>
+        <p class="search-result-count">{{ total_count }} truyện được tìm thấy</p>
     </div>
 
     <div class="search-layout">
-        <!-- Filter Sidebar -->
-        <div class="search-filter">
+        
+        <aside class="search-filter">
             <form method="get" id="filterForm">
                 <input type="hidden" name="q" value="{{ query }}">
 
-                <!-- Tác giả -->
                 <div class="filter-section">
                     <div class="filter-title">Tác giả</div>
                     <input type="text" name="tac_gia" value="{{ tac_gia_filter }}" placeholder="Nhập tên tác giả..." class="filter-input">
                 </div>
 
-                <!-- Tình trạng -->
                 <div class="filter-section">
                     <div class="filter-title">Tình trạng</div>
                     <select name="trang_thai" class="filter-select">
                         <option value="">Tất cả</option>
-                        <option value="dang_ra" {% if trang_thai_filter == 'dang_ra' %}selected{% endif %}>Đang ra</option>
+                        <option value="ongoing" {% if trang_thai_filter == 'ongoing' %}selected{% endif %}>Đang cập nhật</option>
                         <option value="hoan_thanh" {% if trang_thai_filter == 'hoan_thanh' %}selected{% endif %}>Hoàn thành</option>
-                        <option value="tam_ngung" {% if trang_thai_filter == 'tam_ngung' %}selected{% endif %}>Tạm ngưng</option>
+                        <option value="tam_ngung" {% if trang_thai_filter == 'tam_ngung' %}selected{% endif %}>Tạm dừng</option>
                     </select>
                 </div>
 
-                <!-- Thể loại -->
+                <div class="filter-section">
+                    <div class="filter-title">Loại Truyện</div>
+                    <select name="story_type" class="filter-select">
+                        <option value="">Tất cả</option>
+                        <option value="translated" {% if story_type == 'translated' %}selected{% endif %}>Truyện dịch</option> 
+                        <option value="original" {% if story_type == 'original' %}selected{% endif %}>Truyện sáng tác</option>
+                        <option value="ai" {% if story_type == 'ai' %}selected{% endif %}>Truyện AI dịch</option>
+                    </select>
+                </div> 
+
                 <div class="filter-section">
                     <div class="filter-title">Thể loại</div>
-                    <div class="filter-group">
-                        {% for genre in all_genres %}
-                        <div class="filter-item">
-                            <input type="checkbox" id="genre_{{ genre.id }}" name="genres" value="{{ genre.slug }}" 
-                                {% if genre.slug in genres_filter %}checked{% endif %}>
-                            <label for="genre_{{ genre.id }}">{{ genre.name }}</label>
+                    <div class="genre-dropdown-container">
+                        <button type="button" class="btn-genre-toggle" id="genreBtn">
+                            <span>Chọn (<strong id="genreCount">0</strong>)</span>
+                            <i class="arrow-icon">▼</i>
+                        </button>
+                        
+                        <div class="genre-dropdown-content" id="genreContent">
+                            <div class="genre-grid">
+                                {% for genre in all_genres %}
+                                <div class="filter-item">
+                                    <input type="checkbox" id="genre_{{ genre.id }}" name="genres" value="{{ genre.slug }}" 
+                                           class="genre-checkbox"
+                                           {% if genre.slug in genres_filter %}checked{% endif %}>
+                                    <label for="genre_{{ genre.id }}">{{ genre.name }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="genre-footer">
+                                <button type="button" class="btn-apply-genre" id="closeGenre">Xong</button>
+                            </div>
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
 
-                <!-- Actions -->
                 <div class="filter-actions">
-                    <button type="submit" class="btn-filter search">Lọc</button>
-                    <a href="{% url 'search' %}?q={{ query }}" class="btn-filter reset">Xóa bộ lọc</a>
+                    <button type="submit" class="btn-filter search">Lọc kết quả</button>
+                    <a href="{% url 'search' %}?q={{ query }}&page=1" class="btn-filter reset">Xóa bộ lọc</a>
                 </div>
             </form>
-        </div>
+        </aside>
 
-        <!-- Results -->
-        <div>
+        <main class="search-main">
             {% if truyens %}
                 <div class="search-results">
                     {% for truyen in truyens %}
@@ -81,18 +100,43 @@
                     </a>
                     {% endfor %}
                 </div>
+
+                {% if truyens.has_other_pages %}
+                <div class="pagination-wrapper">
+                    <ul class="pagination">
+                        {% if truyens.has_previous %}
+                            <li><a href="?{% url_replace request 'page' 1 %}">&laquo; Đầu</a></li>
+                            <li><a href="?{% url_replace request 'page' truyens.previous_page_number %}">Trước</a></li>
+                        {% endif %}
+
+                        {% for i in truyens.paginator.page_range %}
+                            {% if truyens.number == i %}
+                                <li class="active"><span>{{ i }}</span></li>
+                            {% elif i > truyens.number|add:'-3' and i < truyens.number|add:'3' %}
+                                <li><a href="?{% url_replace request 'page' i %}">{{ i }}</a></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if truyens.has_next %}
+                            <li><a href="?{% url_replace request 'page' truyens.next_page_number %}">Sau</a></li>
+                            <li><a href="?{% url_replace request 'page' truyens.paginator.num_pages %}">Cuối &raquo;</a></li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+
             {% else %}
                 <div class="empty-state">
                     <div class="empty-icon">🔍</div>
                     {% if query %}
-                        <p class="empty-text">Không tìm thấy truyện nào</p>
-                        <p class="empty-hint">Hãy thử tìm kiếm với từ khóa khác</p>
+                        <p class="empty-text">Không tìm thấy truyện nào phù hợp</p>
+                        <p class="empty-hint">Hãy thử đổi từ khóa hoặc xóa bớt bộ lọc</p>
                     {% else %}
                         <p class="empty-text">Vui lòng nhập từ khóa để tìm kiếm</p>
                     {% endif %}
                 </div>
             {% endif %}
-        </div>
+        </main>
     </div>
 </div>
 {% endblock %}

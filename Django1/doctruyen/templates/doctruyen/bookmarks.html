@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Đánh dấu - Theo dõi - Thông báo{% endblock %}
+{% block title %}Truyện đang theo dõi{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -19,7 +19,7 @@
     font-weight: 700;
 }
 
-/* Tabs */
+/* Tabs - Đã lược bỏ border-bottom vì chỉ còn 1 mục */
 .tabs-nav {
     display: flex;
     gap: 0;
@@ -31,29 +31,11 @@
     padding: 12px 20px;
     border: none;
     background: transparent;
-    cursor: pointer;
+    cursor: default; /* Đổi thành default vì không còn tab để chuyển */
     font-size: 14px;
     font-weight: 600;
-    color: #666;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-}
-
-.tab-link:hover {
     color: #111;
-}
-
-.tab-link.active {
-    color: #111;
-    border-bottom-color: #111;
-}
-
-.tab-content {
-    display: none;
-}
-
-.tab-content.active {
-    display: block;
+    border-bottom: 2px solid #111;
 }
 
 /* Story Grid */
@@ -108,129 +90,6 @@
     color: #666;
 }
 
-/* Bookmarks List */
-.bookmarks-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.bookmark-item {
-    padding: 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    display: flex;
-    gap: 16px;
-    background: #fff;
-}
-
-.bookmark-cover {
-    width: 60px;
-    height: 90px;
-    flex-shrink: 0;
-    border-radius: 4px;
-    overflow: hidden;
-    background: #ddd;
-}
-
-.bookmark-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.bookmark-info {
-    flex: 1;
-}
-
-.bookmark-title {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 4px;
-    color: #111;
-}
-
-.bookmark-chapter {
-    font-size: 12px;
-    color: #666;
-    margin-bottom: 8px;
-}
-
-.bookmark-link {
-    display: inline-block;
-    padding: 6px 12px;
-    background: #111;
-    color: #fff;
-    border-radius: 4px;
-    text-decoration: none;
-    font-size: 12px;
-    font-weight: 600;
-    transition: all 0.2s;
-}
-
-.bookmark-link:hover {
-    background: #2a2a2a;
-}
-
-/* Notifications */
-.notifications-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.notification-item {
-    padding: 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: #fff;
-    transition: all 0.2s;
-}
-
-.notification-item.unread {
-    background: #f0f8ff;
-    border-color: #b3d9ff;
-}
-
-.notification-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.notification-text {
-    flex: 1;
-}
-
-.notification-text strong {
-    color: #111;
-}
-
-.notification-time {
-    font-size: 12px;
-    color: #999;
-}
-
-.notification-badge {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    background: #ef4444;
-    border-radius: 50%;
-    margin-right: 8px;
-}
-
-.notification-link {
-    display: inline-block;
-    padding: 6px 12px;
-    background: #111;
-    color: #fff;
-    border-radius: 4px;
-    text-decoration: none;
-    font-size: 12px;
-    margin-left: 12px;
-}
-
 /* Empty State */
 .empty-state {
     text-align: center;
@@ -247,18 +106,9 @@
     font-size: 14px;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
     .story-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    }
-
-    .tabs-nav {
-        flex-wrap: wrap;
-    }
-
-    .tab-link {
-        padding: 10px 16px;
     }
 }
 </style>
@@ -267,17 +117,13 @@
 {% block content %}
 <div class="bookmarks-container container-layout">
     <div class="bookmarks-header">
-        <h1>Đánh dấu & Theo dõi</h1>
+        <h1>Theo dõi</h1>
     </div>
 
-    <!-- TABS -->
     <div class="tabs-nav">
-        <button class="tab-link active" data-tab="follows">📚 Truyện theo dõi ({{ truyen_follows|length }})</button>
-        <button class="tab-link" data-tab="bookmarks">🔖 Chương đã lưu ({{ bookmarks|length }})</button>
-        <button class="tab-link" data-tab="notifications">🔔 Thông báo ({{ notifications|length }})</button>
+        <div class="tab-link active">📚 Truyện theo dõi ({{ truyen_follows|length }})</div>
     </div>
 
-    <!-- TAB 1: TRUYỆN THEO DÕI -->
     <div id="follows" class="tab-content active">
         {% if truyen_follows %}
             <div class="story-grid">
@@ -301,85 +147,8 @@
             </div>
         {% endif %}
     </div>
-
-    <!-- TAB 2: BOOKMARK CHƯƠNG -->
-    <div id="bookmarks" class="tab-content">
-        {% if bookmarks %}
-            <div class="bookmarks-list">
-                {% for bookmark in bookmarks %}
-                <div class="bookmark-item">
-                    <div class="bookmark-cover">
-                        <img src="{% if bookmark.chuong.volume.truyen.anh %}{{ bookmark.chuong.volume.truyen.get_anh_url }}{% else %}{% static 'img/cover_default.jpg' %}{% endif %}" alt="">
-                    </div>
-                    <div class="bookmark-info">
-                        <div class="bookmark-title">{{ bookmark.chuong.volume.truyen.ten }}</div>
-                        <div class="bookmark-chapter">
-                            Vol {{ bookmark.chuong.volume.so_volume }} - Chương {{ bookmark.chuong.so_chuong }}: {{ bookmark.chuong.ten }}
-                        </div>
-                        <a href="{% url 'chuong-detail' bookmark.chuong.volume.truyen.slug bookmark.chuong.slug %}" class="bookmark-link">Đọc tiếp →</a>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="empty-state">
-                <div class="empty-state-icon">🔖</div>
-                <p>Bạn chưa lưu chương nào</p>
-                <p style="font-size: 12px; margin-top: 8px;">Nhấp vào icon 🔖 khi đang đọc để lưu</p>
-            </div>
-        {% endif %}
-    </div>
-
-    <!-- TAB 3: THÔNG BÁO -->
-    <div id="notifications" class="tab-content">
-        {% if notifications %}
-            <div class="notifications-list">
-                {% for notif in notifications %}
-                <div class="notification-item {% if not notif.da_doc %}unread{% endif %}">
-                    <div class="notification-content">
-                        <div class="notification-text">
-                            {% if not notif.da_doc %}
-                                <span class="notification-badge"></span>
-                            {% endif %}
-                            {{ notif.noi_dung }}
-                        </div>
-                        <span class="notification-time">{{ notif.ngay_tao }}</span>
-                    </div>
-                    {% if notif.truyen %}
-                    <a href="{% url 'truyen-detail' notif.truyen.slug %}" class="notification-link">Xem →</a>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="empty-state">
-                <div class="empty-state-icon">🔔</div>
-                <p>Bạn không có thông báo nào</p>
-            </div>
-        {% endif %}
-    </div>
 </div>
+{% endblock %}
 
-<script>
-// Tab switching
-document.querySelectorAll('.tab-link').forEach(link => {
-    link.addEventListener('click', function() {
-        const tabName = this.dataset.tab;
-        
-        // Hide all tabs
-        document.querySelectorAll('.tab-content').forEach(el => {
-            el.classList.remove('active');
-        });
-        
-        // Remove active from all links
-        document.querySelectorAll('.tab-link').forEach(el => {
-            el.classList.remove('active');
-        });
-        
-        // Show selected tab
-        document.getElementById(tabName).classList.add('active');
-        this.classList.add('active');
-    });
-});
-</script>
+{% block extra_js %}
 {% endblock %}

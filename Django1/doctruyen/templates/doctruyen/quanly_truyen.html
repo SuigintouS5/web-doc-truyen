@@ -54,7 +54,7 @@
     .modal-info-box h4 { margin: 0; font-size: 14px; color: #64748b; font-weight: 500; }
     .modal-info-box .hl-blue { color: #3b82f6; font-weight: 700; }
 
-    /* --- Danh sách thành viên (Mới) --- */
+    /* --- Danh sách thành viên --- */
     .member-list-label { font-size: 13px; color: #64748b; margin-bottom: 8px; font-weight: 600; }
     .member-list-wrapper {
         border: 1px solid #f1f5f9; border-radius: 12px;
@@ -134,7 +134,7 @@
             <input type="text" id="transferUsernameInput" class="ui-input" placeholder="Nhập tên người nhận quyền...">
             <div class="modal-footer-btns">
                 <button class="btn-cancel" onclick="closeAdminModal('transferModal')">Hủy</button>
-                        <button class="btn-black" id="transferConfirmBtn">Xác nhận chuyển</button>
+                <button class="btn-black" id="transferConfirmBtn">Xác nhận chuyển</button>
             </div>
         </div>
     </div>
@@ -150,7 +150,6 @@
             <div class="modal-info-box">
                 <h4>Truyện: <span class="hl-blue">{{ truyen.ten }}</span></h4>
             </div>
-
             <div class="member-list-label">Thành viên hiện có:</div>
             <div class="member-list-wrapper">
                 <div class="member-item">
@@ -165,9 +164,7 @@
                 <div class="member-item" style="color: #94a3b8; font-style: italic; font-size: 13px;">Chưa có người cùng quản lý.</div>
                 {% endfor %}
             </div>
-
             <div class="warning-text-box">Không thêm thành viên nếu chưa được đồng ý.</div>
-            
             <div style="display: flex; gap: 8px;">
                 <input type="text" id="shareUsernameInput" class="ui-input" placeholder="Tên thành viên mới...">
                 <button class="btn-black" id="shareConfirmBtn" style="white-space: nowrap;">Thêm</button>
@@ -183,10 +180,8 @@
                 <i class="fas fa-exclamation-triangle" style="font-size: 30px; color: #ef4444;"></i>
             </div>
             <h3 style="margin: 0 0 10px 0; color: #1e293b; font-size: 20px;">Xác nhận xóa truyện?</h3>
-            <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">Truyện <span style="font-weight: 700; color: #ef4444;">{{ truyen.ten }}</span> sẽ bị xóa vĩnh viễn khỏi hệ thống.</p>
-            
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">Truyện <span style="font-weight: 700; color: #ef4444;">{{ truyen.ten }}</span> sẽ bị xóa vĩnh viễn.</p>
             <textarea class="ui-input" style="min-height: 80px; margin-bottom: 20px;" placeholder="Lý do xóa (không bắt buộc)..."></textarea>
-            
             <button class="btn-delete-red" id="deleteConfirmBtn" style="margin-bottom: 12px;">Xác nhận xóa</button>
             <div style="color: #94a3b8; font-size: 14px; cursor: pointer; font-weight: 600;" onclick="closeAdminModal('deleteModal')">Quay lại</div>
         </div>
@@ -194,82 +189,85 @@
 </div>
 
 <script>
+    // Modal Logic
     function openAdminModal(id) { document.getElementById(id).classList.add('open'); }
     function closeAdminModal(id) { document.getElementById(id).classList.remove('open'); }
     window.onclick = function(e) { if (e.target.classList.contains('admin-modal')) closeAdminModal(e.target.id); }
-</script>
-<script>
-// JS helper: get csrftoken from cookie
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let cookie of cookies) {
-            cookie = cookie.trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
+
+    // CSRF Helper
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
             }
         }
+        return cookieValue;
     }
-    return cookieValue;
-}
 
-document.getElementById('transferConfirmBtn').addEventListener('click', function(){
-    const username = document.getElementById('transferUsernameInput').value.trim();
-    if (!username) { alert('Nhập tên người nhận'); return; }
-    const form = new FormData();
-    form.append('loai', 'transfer');
-    form.append('receiver_username', username);
-    form.append('truyen_id', '{{ truyen.id }}');
-    form.append('message', `Yêu cầu chuyển quyền truyện {{ truyen.ten }}`);
-    form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    // --- Unified Fetch Function ---
+    async function postData(formData, modalId) {
+        // Đảm bảo đường dẫn này tồn tại trong urls.py
+        const url = "/notifications/api/create/"; 
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
 
-    fetch('/notifications/create/', { method: 'POST', body: form })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success'){
-                alert('Đã gửi yêu cầu');
-                closeAdminModal('transferModal');
-            } else alert(data.message || 'Lỗi');
-        }).catch(err=> alert('Lỗi: '+err.message));
-});
+            if (!response.ok) {
+                throw new Error(`Lỗi kết nối (${response.status}). Hãy kiểm tra urls.py.`);
+            }
 
-document.getElementById('shareConfirmBtn').addEventListener('click', function(){
-    const username = document.getElementById('shareUsernameInput').value.trim();
-    if (!username) { alert('Nhập tên thành viên'); return; }
-    const form = new FormData();
-    form.append('loai', 'share');
-    form.append('receiver_username', username);
-    form.append('truyen_id', '{{ truyen.id }}');
-    form.append('message', `Yêu cầu share quyền truyện {{ truyen.ten }}`);
-    form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+            const data = await response.json();
+            if (data.status === 'success') {
+                alert(data.message || "Đã gửi thành công!");
+                closeAdminModal(modalId);
+                if(modalId === 'transferModal' || modalId === 'deleteModal') window.location.reload();
+            } else {
+                alert(data.message || "Yêu cầu bị từ chối.");
+            }
+        } catch (error) {
+            alert("Lỗi hệ thống: " + error.message);
+        }
+    }
 
-    fetch('/notifications/create/', { method: 'POST', body: form })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success'){
-                alert('Đã gửi yêu cầu share');
-                closeAdminModal('shareModal');
-            } else alert(data.message || 'Lỗi');
-        }).catch(err=> alert('Lỗi: '+err.message));
-});
+    // --- Event Listeners ---
+    document.getElementById('transferConfirmBtn').onclick = () => {
+        const user = document.getElementById('transferUsernameInput').value.trim();
+        if (!user) return alert("Nhập tên người nhận!");
+        const fd = new FormData();
+        fd.append('loai', 'transfer');
+        fd.append('receiver_username', user);
+        fd.append('truyen_id', '{{ truyen.id }}');
+        fd.append('message', "Yêu cầu chuyển quyền sở hữu truyện: {{ truyen.ten }}");
+        postData(fd, 'transferModal');
+    };
 
-document.getElementById('deleteConfirmBtn').addEventListener('click', function(){
-    const reason = document.querySelector('#deleteModal textarea').value.trim();
-    const form = new FormData();
-    form.append('loai', 'delete_request');
-    form.append('truyen_id', '{{ truyen.id }}');
-    form.append('message', reason || `Yêu cầu xóa truyện {{ truyen.ten }}`);
-    form.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    document.getElementById('shareConfirmBtn').onclick = () => {
+        const user = document.getElementById('shareUsernameInput').value.trim();
+        if (!user) return alert("Nhập tên thành viên!");
+        const fd = new FormData();
+        fd.append('loai', 'share');
+        fd.append('receiver_username', user);
+        fd.append('truyen_id', '{{ truyen.id }}');
+        fd.append('message', "Mời bạn tham gia quản lý truyện: {{ truyen.ten }}");
+        postData(fd, 'shareModal');
+    };
 
-    fetch('/notifications/create/', { method: 'POST', body: form })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success'){
-                alert('Yêu cầu xóa đã gửi đến admin');
-                closeAdminModal('deleteModal');
-            } else alert(data.message || 'Lỗi');
-        }).catch(err=> alert('Lỗi: '+err.message));
-});
+    document.getElementById('deleteConfirmBtn').onclick = () => {
+        const reason = document.querySelector('#deleteModal textarea').value.trim();
+        const fd = new FormData();
+        fd.append('loai', 'delete_request');
+        fd.append('truyen_id', '{{ truyen.id }}');
+        fd.append('message', reason || "Yêu cầu xóa truyện: {{ truyen.ten }}");
+        postData(fd, 'deleteModal');
+    };
 </script>

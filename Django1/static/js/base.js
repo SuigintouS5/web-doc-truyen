@@ -11,41 +11,34 @@ document.addEventListener('DOMContentLoaded', function() {
   if (!isAuthenticated) return;
   
   // ===== UPDATE BADGE COUNT =====
-  function updateBellBadge() {
+  function updateNotificationBadges() {
     fetch('/notifications/')
       .then(r => r.json())
       .then(data => {
-        const unreadCount = data.notifications.filter(n => !n.da_doc).length;
-        if (unreadCount > 0) {
-          notificationCount.textContent = unreadCount;
+        const unreadBell = data.unread_counts?.bell ?? 0;
+        const unreadFollow = data.unread_counts?.follow ?? 0;
+
+        if (unreadBell > 0) {
+          notificationCount.textContent = unreadBell;
           notificationCount.style.display = 'flex';
         } else {
           notificationCount.style.display = 'none';
         }
-      });
-  }
-  
-  function updateHeartBadge() {
-    fetch('/notifications/follow/')
-      .then(r => r.json())
-      .then(data => {
-        const unreadCount = data.notifications.filter(n => !n.da_doc).length;
-        if (unreadCount > 0) {
-          followNotificationCount.textContent = unreadCount;
+
+        if (unreadFollow > 0) {
+          followNotificationCount.textContent = unreadFollow;
           followNotificationCount.style.display = 'flex';
         } else {
           followNotificationCount.style.display = 'none';
         }
       });
   }
-  
+
   // Update badges on load
-  updateBellBadge();
-  updateHeartBadge();
+  updateNotificationBadges();
   
   // Update every 5 seconds
-  setInterval(updateBellBadge, 5000);
-  setInterval(updateHeartBadge, 5000);
+  setInterval(updateNotificationBadges, 5000);
   
   // Bell click navigates to notifications page
   if (notificationBell) {

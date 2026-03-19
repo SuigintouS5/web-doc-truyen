@@ -77,6 +77,28 @@
         <div class="empty-msg">Chưa có truyện nào được đăng tải.</div>
         {% endfor %}
     </div>
+
+    {% if is_owner or user.is_staff %}
+        {% if truyen_edit %}
+        <h2 class="section-title" style="margin-top: 40px;">Truyện hợp tác</h2>
+        <div class="story-grid">
+            {% for t in truyen_edit %}
+            <div class="story-card">
+                <a href="{% url 'truyen-detail' t.slug %}">
+                    <div class="story-cover">
+                        <img src="{{ t.get_anh_url }}" alt="{{ t.ten }}">
+                        <span class="role-badge" style="background-color: #3b82f6;">Cộng tác</span>
+                    </div>
+                </a>
+                <div class="story-info">
+                    <h3><a href="{% url 'truyen-detail' t.slug %}">{{ t.ten }}</a></h3>
+                    <p>Chủ sở hữu: {{ t.author.username }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endif %}
 </div>
 
 <div id="contactModal" class="modal-overlay">
@@ -84,8 +106,7 @@
         <span class="close-modal" id="closeContactModal">&times;</span>
         <h3 class="modal-title">Kết nối với {{ display_user.username }}</h3>
         <hr class="modal-divider">
-        <div id="contactDetails" class="contact-list-container">
-            </div>
+        <div id="contactDetails" class="contact-list-container"></div>
     </div>
 </div>
 
@@ -103,7 +124,6 @@
 
 {% block extra_js %}
 <script>
-    // Truyền URL upload từ Django sang JS
     const uploadUrl = "{% url 'update-profile-image-ajax' %}";
 </script>
 <script src="{% static 'js/profile.js' %}"></script>

@@ -26,10 +26,8 @@ urlpatterns = [
     path('profile/update-image/', views.update_profile_image_ajax, name='update-profile-image-ajax'),
     path('profile/update-info/', views.update_profile_ajax, name='update-profile-ajax'),
     path('profile/change-password/', views.change_password_ajax, name='change-password-ajax'),
-    
     path('profile/update-extra/', views.update_profile_extra_ajax, name='update_extra'),
     path('profile/update-privacy/', views.update_privacy_ajax, name='update_privacy'),
-
     path('profile/them-truyen/', views.truyen_create, name='truyen-create'),
     path('truyen/<slug:slug>/edit/', views.truyen_edit, name='truyen-edit'),
     path('lich-su-doc/', views.lich_su_view, name='lich-su-doc'),
@@ -57,17 +55,21 @@ urlpatterns = [
     path('chuong/<int:chuong_id>/bookmark/', views.toggle_bookmark_ajax, name='toggle-bookmark'),
     path('chuong/<int:chuong_id>/is-bookmarked/', views.is_bookmarked_ajax, name='is-bookmarked'),
 
-    # --- NOTIFICATION ---
-    path('notifications/', views.get_notifications_ajax, name='get-notifications'),
-    path('notifications/follow/', views.get_follow_notifications_ajax, name='get-follow-notifications'),
-    path('notifications/count/', views.count_unread_notifications_ajax, name='count-unread'),
-    path('notifications/follow/count/', views.count_follow_notifications_ajax, name='count-follow-unread'),
+    # --- NOTIFICATION (CHỈNH SỬA TẠI ĐÂY) ---
+    # Trang danh sách thông báo chính (Nút Chuông dẫn vào đây)
+    path('notifications/', views.notifications_view, name='notifications'), 
+    
+    # API lấy danh sách cho Dropdown của Tim
+    path('notifications/api/get-follow/', views.get_follow_notifications_ajax, name='get-follow-notifications'),
+    
+    # API đếm số lượng thông báo chưa đọc (Dùng chung cho cả 2 Badge)
+    path('notifications/api/count/', views.count_unread_notifications_ajax, name='count-unread'),
+    
+    # Các thao tác phụ
     path('notifications/<int:notification_id>/read/', views.mark_notification_read_ajax, name='mark-read'),
-    path('notifications/list/', views.notifications_view, name='notifications-list'),
-    # Actions for pending requests
-    path('notifications/create/', views.create_notification_ajax, name='create-notification'),
     path('notifications/<int:notification_id>/accept/', views.accept_notification_ajax, name='accept-notification'),
     path('notifications/<int:notification_id>/decline/', views.decline_notification_ajax, name='decline-notification'),
+    path('notifications/api/create/', views.create_notification_ajax, name='create-notification-ajax'),
 
     # --- TÀI KHOẢN ---
     path("dang-nhap/", views.login_view, name="user-login"),

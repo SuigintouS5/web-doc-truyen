@@ -1,0 +1,166 @@
+{% extends 'admin_all/base_admin.html' %}
+
+{% block title %}Báo cáo vi phạm{% endblock %}
+{% block page_title %}Danh sách báo cáo vi phạm{% endblock %}
+
+{% block content %}
+<style>
+    .filter-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    .search-box {
+        position: relative;
+        width: 300px;
+    }
+    .search-box input {
+        width: 100%;
+        padding: 10px 15px 10px 40px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        outline: none;
+    }
+    .search-box i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bg-card);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+    .report-table th, .report-table td {
+        padding: 15px 20px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .report-table th {
+        background: #f8fafc;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+    }
+    .badge {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .badge-pending { background: #fef3c7; color: #d97706; }
+    .badge-resolved { background: #dcfce7; color: #16a34a; }
+    .badge-rejected { background: #fee2e2; color: #dc2626; }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: white;
+        cursor: pointer;
+        font-size: 13px;
+        transition: 0.2s;
+    }
+    .btn-action:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .story-link {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .story-link:hover { text-decoration: underline; }
+</style>
+
+<div class="filter-bar">
+    <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" placeholder="Tìm kiếm truyện hoặc user...">
+    </div>
+    <div class="status-filters">
+        <select class="btn-action">
+            <option>Tất cả trạng thái</option>
+            <option>Chờ xử lý</option>
+            <option>Đã xử lý</option>
+            <option>Đã bác bỏ</option>
+        </select>
+    </div>
+</div>
+
+<div class="card" style="padding: 0;">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Ngày gửi</th>
+                <th>Người báo cáo</th>
+                <th>Nội dung bị báo cáo</th>
+                <th>Lý do</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in reports %}
+            <tr>
+                <td style="font-size: 13px; color: var(--text-muted);">
+                    {{ report.ngay_tao|date:"d/m/Y H:i" }}
+                </td>
+                <td>
+                    <div style="font-weight: 500;">{{ report.user_report.username }}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">ID: #{{ report.user_report.id }}</div>
+                </td>
+                <td>
+                    <a href="#" class="story-link">{{ report.truyen.ten }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">Chương: {{ report.chuong.so_chuong|default:"Toàn bộ" }}</div>
+                </td>
+                <td>
+                    <div style="max-width: 250px; font-size: 13px;">
+                        {{ report.ly_do }}
+                    </div>
+                </td>
+                <td>
+                    {% if report.trang_thai == 'pending' %}
+                        <span class="badge badge-pending">Chờ xử lý</span>
+                    {% elif report.trang_thai == 'resolved' %}
+                        <span class="badge badge-resolved">Đã xử lý</span>
+                    {% else %}
+                        <span class="badge badge-rejected">Đã bác bỏ</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-action" title="Xem chi tiết"><i class="fas fa-eye"></i></button>
+                        <button class="btn-action" style="color: #16a34a;" title="Chấp nhận"><i class="fas fa-check"></i></button>
+                        <button class="btn-action" style="color: #dc2626;" title="Bác bỏ"><i class="fas fa-times"></i></button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <i class="fas fa-check-circle" style="font-size: 30px; display: block; margin-bottom: 10px; opacity: 0.3;"></i>
+                    Không có báo cáo vi phạm nào cần xử lý.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+    <button class="btn-action"><i class="fas fa-chevron-left"></i></button>
+    <button class="btn-action" style="background: var(--primary); color: white; border-color: var(--primary);">1</button>
+    <button class="btn-action">2</button>
+    <button class="btn-action">3</button>
+    <button class="btn-action"><i class="fas fa-chevron-right"></i></button>
+</div>
+
+{% endblock %}
