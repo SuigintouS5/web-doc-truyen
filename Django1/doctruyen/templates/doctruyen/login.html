@@ -4,47 +4,40 @@
 {% block title %}Đăng nhập | Đăng ký{% endblock %}
 
 {% block content %}
-
-<!-- CSS riêng cho login -->
 <link rel="stylesheet" href="{% static 'css/login.css' %}">
 
-{# ===== AUTO OPEN MODAL KHI CÓ MESSAGE ===== #}
-{% if messages %}
-  {% with messages.0 as message %}
-    <script>
-      window.AUTH_OPEN = true;
-      window.AUTH_MODE = "{{ message.tags }}";  // login | register
-    </script>
-  {% endwith %}
-{% endif %}
+<div id="auth-config" 
+     style="display: none;"
+     data-open="{% if messages %}true{% else %}false{% endif %}"
+     data-mode="{% for m in messages %}{{ m.tags }}{% endfor %}">
+</div>
 
-<!-- ================= AUTH OVERLAY ================= -->
 <div class="auth-overlay" id="authOverlay">
-
   <div class="auth-modal">
-
-    <!-- Close -->
     <button class="auth-close" id="closeAuth" type="button">×</button>
 
-    <!-- Header -->
     <div class="auth-header">
-      <div class="auth-logo">A</div>
+      <div class="auth-logo">US</div>
       <h2 id="authTitle">Đăng nhập</h2>
       <p id="authDesc">Chào mừng bạn quay lại</p>
     </div>
 
-    <!-- ================= LOGIN FORM ================= -->
-    <form
-      method="post"
-      action="{% url 'user-login' %}"
-      class="auth-form active"
-      id="loginForm"
-    >
-      {% csrf_token %}
+    {% if messages %}
+      <div class="auth-messages" style="padding: 0 28px; margin-bottom: 15px;">
+        {% for message in messages %}
+          <div style="color: var(--auth-danger); font-size: 13px; background: #fff1f0; padding: 10px; border-radius: 8px; border: 1px solid #ffa39e; margin-bottom: 6px;">
+            ● {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
 
+    <form method="post" action="{% url 'user-login' %}" class="auth-form active" id="loginForm">
+      {% csrf_token %}
+      
       <div class="form-group">
         <label>Email hoặc Tên đăng nhập</label>
-        <input type="text" name="username" required>
+        <input type="text" name="username" value="{{ request.POST.username|default:'' }}" required>
       </div>
 
       <div class="form-group">
@@ -59,40 +52,24 @@
         <a href="#">Quên mật khẩu?</a>
       </div>
 
-      <button type="submit" class="auth-btn">
-        Đăng nhập
-      </button>
-
-      <div class="divider">Hoặc</div>
-
-      <div class="social-buttons">
-        <button type="button">Google</button>
-        <button type="button">Facebook</button>
-      </div>
+      <button type="submit" class="auth-btn">Đăng nhập</button>
 
       <div class="switch-auth">
-        Chưa có tài khoản?
-        <span data-switch="register">Đăng ký</span>
+        Chưa có tài khoản? <span data-switch="register">Đăng ký</span>
       </div>
     </form>
 
-    <!-- ================= REGISTER FORM ================= -->
-    <form
-      method="post"
-      action="{% url 'user-register' %}"
-      class="auth-form"
-      id="registerForm"
-    >
+    <form method="post" action="{% url 'user-register' %}" class="auth-form" id="registerForm">
       {% csrf_token %}
-
+      
       <div class="form-group">
         <label>Tên đăng nhập</label>
-        <input type="text" name="username" required>
+        <input type="text" name="username" value="{{ request.POST.username|default:'' }}" required>
       </div>
 
       <div class="form-group">
         <label>Email</label>
-        <input type="email" name="email" required>
+        <input type="email" name="email" value="{{ request.POST.email|default:'' }}" required>
       </div>
 
       <div class="form-group">
@@ -110,20 +87,15 @@
         <span>Tôi đồng ý với Điều khoản & Chính sách</span>
       </label>
 
-      <button type="submit" class="auth-btn">
-        Đăng ký
-      </button>
+      <button type="submit" class="auth-btn">Đăng ký</button>
 
       <div class="switch-auth">
-        Đã có tài khoản?
-        <span data-switch="login">Đăng nhập</span>
+        Đã có tài khoản? <span data-switch="login">Đăng nhập</span>
       </div>
     </form>
 
   </div>
 </div>
 
-<!-- JS -->
-<script src="{% static 'img/login.js' %}"></script>
-
+<script src="{% static 'js/login.js' %}"></script>
 {% endblock %}

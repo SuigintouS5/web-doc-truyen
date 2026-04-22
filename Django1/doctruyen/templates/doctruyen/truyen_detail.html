@@ -227,7 +227,7 @@ function loadComments() {
                 <div class="comment-item ${comment.is_pinned ? 'pinned' : ''}" id="comment-${comment.id}">
                     <div class="comment-header">
                         <div class="comment-avatar-container">
-                             <img src="${comment.avatar}" class="comment-avatar">
+                          <img src="${comment.avatar || '/static/img/avatar.jpg'}" class="comment-avatar">
                         </div>
                         <div class="comment-info">
                             <div class="comment-author">

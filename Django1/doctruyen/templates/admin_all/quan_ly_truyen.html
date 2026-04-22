@@ -1,0 +1,238 @@
+{% extends 'admin_all/base_admin.html' %}
+
+{% block title %}Quản lý truyện{% endblock %}
+{% block page_title %}Quản trị kho nội dung{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+
+<style>
+    /* CSS tinh chỉnh cho danh sách truyện */
+    .book-thumb { 
+        width: 45px; 
+        height: 60px; 
+        object-fit: cover; 
+        border-radius: 4px; 
+        border: 1px solid var(--border-color);
+        background: #f1f5f9;
+    }
+    .badge-status { 
+        padding: 4px 10px; 
+        border-radius: 20px; 
+        font-size: 11px; 
+        font-weight: 600; 
+        display: inline-block;
+    }
+    /* Màu sắc trạng thái khớp với Model STATUS_CHOICES */
+    .status-ongoing { background: #e0f2fe; color: #0369a1; }
+    .status-hoan_thanh { background: #dcfce7; color: #15803d; }
+    .status-tam_ngung { background: #fef3c7; color: #b45309; }
+
+    .admin-table-res {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bg-card);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .admin-table-res th {
+        background: #f8fafc;
+        padding: 15px;
+        text-align: left;
+        font-size: 12px;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border-color);
+    }
+    .admin-table-res td {
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: white;
+        color: var(--text-main);
+        transition: 0.2s;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .btn-action:hover {
+        background: #f1f5f9;
+        color: var(--accent);
+    }
+    /* Style riêng cho nút xóa */
+    .btn-delete-truyen:hover {
+        background: #fee2e2 !important;
+        color: #dc2626 !important;
+        border-color: #fecaca !important;
+    }
+</style>
+
+<div style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+    <form method="GET" style="display: flex; gap: 10px; flex: 1; max-width: 500px;">
+        <div style="position: relative; flex: 1;">
+            <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px;"></i>
+            <input type="text" name="search" value="{{ search_query|default:'' }}" 
+                   placeholder="Tìm truyện, tác giả, người đăng..." 
+                   style="width: 100%; padding: 10px 10px 10px 38px; border-radius: 8px; border: 1px solid var(--border-color); outline: none; font-size: 14px;">
+        </div>
+        <button type="submit" class="nav-item active" style="border: none; margin: 0; padding: 0 20px; cursor: pointer; height: 40px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-filter"></i> <span>Lọc</span>
+        </button>
+    </form>
+
+    <div style="font-size: 13px; color: var(--text-muted);">
+        Tổng số: <strong>{{ page_obj.paginator.count }}</strong> truyện
+    </div>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden; border: 1px solid var(--border-color);">
+    <table class="admin-table-res">
+        <thead>
+            <tr>
+                <th>THÔNG TIN TRUYỆN</th>
+                <th>TÁC GIẢ/NGƯỜI ĐĂNG</th>
+                <th>THỐNG KÊ</th>
+                <th>TRẠNG THÁI</th>
+                <th style="text-align: center;">THAO TÁC</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for truyen in page_obj %}
+            <tr>
+                <td>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <img src="{{ truyen.get_anh_url }}" class="book-thumb" alt="cover">
+                        <div>
+                            <div style="font-weight: 600; color: var(--text-main); font-size: 14px;">{{ truyen.ten }}</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                                <i class="fas fa-tag"></i> {{ truyen.get_story_type_display }}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div style="font-size: 13px; font-weight: 500; color: var(--text-main);">{{ truyen.tac_gia }}</div>
+                    <div style="font-size: 11px; color: var(--accent); margin-top: 2px;">
+                        @{{ truyen.author.username|default:truyen.author.email }}
+                    </div>
+                </td>
+                <td>
+                    <div style="font-size: 12px; color: var(--text-muted); line-height: 1.6;">
+                        <div><i class="fas fa-layer-group" style="width: 15px;"></i> {{ truyen.num_volumes }} Volume</div>
+                        <div><i class="fas fa-star" style="width: 15px; color: #f59e0b;"></i> {{ truyen.diem_trung_binh|stringformat:".1f" }}</div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge-status status-{{ truyen.trang_thai }}">
+                        {{ truyen.trang_thai_display }}
+                    </span>
+                </td>
+                <td>
+                    <div style="display: flex; justify-content: center; gap: 8px;">
+                        <a href="{{ truyen.get_absolute_url }}" target="_blank" class="btn-action" title="Xem ngoài web">
+                            <i class="fas fa-external-link-alt" style="font-size: 12px;"></i>
+                        </a>
+                        
+                        <button class="btn-action btn-delete-truyen" 
+                                data-slug="{{ truyen.slug }}" 
+                                data-name="{{ truyen.ten }}"
+                                style="color: #64748b; border: 1px solid var(--border-color);" 
+                                title="Xóa vĩnh viễn">
+                            <i class="fas fa-ban" style="font-size: 12px;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 50px; color: var(--text-muted); font-size: 14px;">
+                    Không tìm thấy truyện nào phù hợp.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div style="margin-top: 30px; display: flex; justify-content: center; align-items: center; gap: 10px;">
+    {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="btn-action">
+            <i class="fas fa-chevron-left" style="font-size: 12px;"></i>
+        </a>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+            <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #1e293b; color: white; font-weight: 600; font-size: 14px;">
+                {{ num }}
+            </div>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}" class="btn-action" style="font-size: 14px;">
+                {{ num }}
+            </a>
+        {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="btn-action">
+            <i class="fas fa-chevron-right" style="font-size: 12px;"></i>
+        </a>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Lấy CSRF Token từ thẻ input do Django tạo ra
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    document.querySelectorAll('.btn-delete-truyen').forEach(button => {
+        button.onclick = function() {
+            const slug = this.dataset.slug;
+            const name = this.dataset.name;
+
+            // Xác nhận trước khi xóa
+            if (!confirm(`XÁC NHẬN XÓA: "${name}"?\nToàn bộ dữ liệu (Volume, Chương) sẽ bị xóa vĩnh viễn và không thể khôi phục!`)) {
+                return;
+            }
+
+            // Gọi API xóa truyện
+            fetch(`/admin-tong/quan-ly-truyen/xoa/${slug}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Đường dẫn không tồn tại hoặc lỗi server (404/500)');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    location.reload(); // Tải lại trang để cập nhật danh sách
+                } else {
+                    alert('Lỗi: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra: ' + error.message);
+            });
+        };
+    });
+});
+</script>
+
+{% endblock %}

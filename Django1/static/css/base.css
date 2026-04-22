@@ -1,65 +1,111 @@
-/* =========================
+/* =================================================2
    HỆ THỐNG BIẾN MÀU (CHUYÊN GIA)
-========================= */
+   ================================================= */
 :root {
-  /* Light Mode */
-  --bg-color: #ffffff;
-  --bg-body: #f4f4f4;
-  --header-bg: #ffffff;
-  --text-main: #111111;
-  --text-muted: #666666;
-  --border-color: #e5e7eb;
-  --card-bg: #ffffff;
-  --dropdown-bg: #ffffff;
-  --dropdown-hover: #f9f9f9;
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --toast-bg: #ffffff;
+    /* Light Mode */
+    --bg-color: #ffffff;
+    --bg-body: #f4f4f4;
+    --header-bg: #ffffff;
+    --text-main: #111111;
+    --text-muted: #666666;
+    --border-color: #e5e7eb;
+    --card-bg: #ffffff;
+    --dropdown-bg: #ffffff;
+    --dropdown-hover: #f9f9f9;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --toast-bg: #ffffff;
 }
 
 .dark-mode {
-  /* Dark Mode */
-  --bg-color: #121212;
-  --bg-body: #0a0a0a;
-  --header-bg: #1a1a1a;
-  --text-main: #e5e7eb;
-  --text-muted: #9ca3af;
-  --border-color: #374151;
-  --card-bg: #1e1e1e;
-  --dropdown-bg: #262626;
-  --dropdown-hover: #333333;
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  --toast-bg: #262626;
+    /* Dark Mode */
+    --bg-color: #121212;
+    --bg-body: #0a0a0a;
+    --header-bg: #1a1a1a;
+    --text-main: #e5e7eb;
+    --text-muted: #9ca3af;
+    --border-color: #374151;
+    --card-bg: #1e1e1e;
+    --dropdown-bg: #262626;
+    --dropdown-hover: #333333;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --toast-bg: #262626;
 }
 
 /* Áp dụng cơ bản */
 body {
-  background-color: var(--bg-body);
-  color: var(--text-main);
-  transition: background-color 0.3s, color 0.3s;
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    transition: background-color 0.3s, color 0.3s;
 }
 
 header.site-header {
-  background-color: var(--header-bg);
-  border-bottom: 1px solid var(--border-color);
+    background-color: var(--header-bg);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
-/* =========================
-   NOTIFICATION & DROPDOWN
-========================= */
-.notification-badge {
-    position: absolute;
-    top: -8px; right: -8px;
-    background: #ef4444;
-    color: #fff;
-    border-radius: 50%;
-    width: 20px; height: 20px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 700;
+/* =================================================
+   ICONS & NOTIFICATION BADGES
+   ================================================= */
+.icons {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
-.notification-dropdown, .dropdown-menu {
+.icons a, .icons div {
+    position: relative; /* Bắt buộc để badge bám theo icon */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icons svg {
+    width: 24px;
+    height: 24px;
+    fill: var(--text-main); /* Light mode icon color */
+    transition: fill 0.3s;
+}
+
+.dark-mode .icons svg {
+    fill: var(--text-main); /* Dark mode icon color */
+}
+
+/* Style chung cho cả 2 loại Badge */
+.notification-badge, 
+.notification-badge-header {
     position: absolute;
-    top: 100%; right: 0;
+    background: #ef4444; /* Màu đỏ thông báo */
+    color: #ffffff !important;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    height: 18px;
+    min-width: 18px;
+    padding: 0 4px;
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--header-bg); /* Viền tiệp màu nền header */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 10;
+    pointer-events: none; /* Tránh click nhầm vào badge */
+}
+
+/* Tọa độ chính xác cho từng icon */
+#followNotificationCount { top: -5px; right: -5px; } /* Badge trái tim */
+#notificationCount { top: -2px; right: -2px; }       /* Badge chuông */
+
+/* =================================================
+   DROPDOWNS (NOTIFICATIONS & ACCOUNT)
+   ================================================= */
+.notification-dropdown, 
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
     background-color: var(--dropdown-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -68,99 +114,48 @@ header.site-header {
     max-height: 400px;
     overflow-y: auto;
     z-index: 1001;
-    margin-top: 8px;
-    color: var(--text-main);
+    margin-top: 12px;
 }
 
-.dropdown-menu { min-width: 200px; width: auto; }
-.dropdown-menu.active { display: block; }
+.dropdown-menu { 
+    min-width: 200px; 
+    width: auto; 
+    display: none; /* Mặc định ẩn, dùng JS toggle class .active hoặc inline style */
+}
 
-.notification-item-header, .dropdown-header {
+.dropdown-menu.active { 
+    display: block; 
+}
+
+.dropdown-header {
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-color);
-    font-size: 12px; font-weight: 600;
+    font-size: 12px;
+    font-weight: 600;
     color: var(--text-muted);
 }
 
-.notification-item, .dropdown-list a, .dropdown-item {
+.dropdown-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.dropdown-list a, 
+.dropdown-item {
     padding: 12px 16px;
-    border-bottom: 1px solid var(--border-color);
     cursor: pointer;
     transition: background 0.2s;
     color: var(--text-main) !important;
     text-decoration: none;
-    display: flex; align-items: center;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.notification-item:hover, .dropdown-list a:hover, .dropdown-item:hover {
+.dropdown-list a:hover, 
+.dropdown-item:hover {
     background-color: var(--dropdown-hover);
-}
-
-.notification-item.unread { background-color: rgba(59, 130, 246, 0.1); }
-.notification-item-text { font-size: 13px; color: var(--text-main); line-height: 1.4; }
-.notification-item-time { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-
-/* =========================
-   TOAST NOTIFICATIONS
-========================= */
-.toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
-
-.toast {
-    background-color: var(--toast-bg);
-    color: var(--text-main);
-    border-radius: 8px;
-    box-shadow: var(--shadow);
-    padding: 16px;
-    min-width: 300px;
-    border: 1px solid var(--border-color);
-}
-
-.toast-success { border-left: 4px solid #10b981; }
-.toast-error { border-left: 4px solid #ef4444; }
-
-.toast-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; }
-.toast-close:hover { color: var(--text-main); }
-
-/* =========================
-   AUTH MODAL
-========================= */
-.auth-overlay {
-    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.7); z-index: 2000; align-items: center; justify-content: center;
-}
-.auth-overlay.active { display: flex; }
-
-.auth-modal {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    border-radius: 12px;
-    box-shadow: var(--shadow);
-    width: 90%; max-width: 400px;
-    position: relative;
-    border: 1px solid var(--border-color);
-}
-
-.auth-header h2 { color: var(--text-main); }
-.auth-header p { color: var(--text-muted); }
-
-.form-group label { color: var(--text-main); }
-.form-group input {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    border: 1px solid var(--border-color);
-}
-
-.auth-close { color: var(--text-muted); }
-.auth-close:hover { color: var(--text-main); }
-
-/* Sidebar & Box cũ */
-.story-left-box, .sidebar-box {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    color: var(--text-main);
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
 }
 
 .dropdown-divider {
@@ -169,30 +164,54 @@ header.site-header {
     margin: 8px 0;
 }
 
-/* Header trong Dark Mode */
-.dark-mode .site-header {
-    background-color: var(--header-bg);
-    border-bottom: 1px solid var(--border-color);
-}
-
-/* Sửa ô Tìm kiếm (Search bar) */
-.dark-mode .search-form input {
-    background-color: #262626; /* Nền tối nhẹ cho input */
+/* =================================================
+   SEARCH BAR & UTILS
+   ================================================= */
+.search-form input {
+    background-color: var(--bg-body);
     border: 1px solid var(--border-color);
     color: var(--text-main);
+    padding: 8px 16px;
+    border-radius: 20px;
+    outline: none;
 }
 
-.dark-mode .search-form input::placeholder {
-    color: var(--text-muted);
+.dark-mode .search-form input {
+    background-color: #262626;
 }
 
-/* Sửa các Icon (Heart, Bell, User) */
-.dark-mode .icons a svg, 
-.dark-mode .icons button svg {
-    fill: var(--text-main); /* Đổi màu icon SVG sang trắng xám */
-}
-
-/* Fix màu logo nếu cần (nếu logo của bạn là dạng text hoặc svg) */
+/* Logo Fix */
 .dark-mode .logo img {
-    filter: brightness(0) invert(1); /* Đảo màu ảnh logo nếu nó là màu đen gốc */
+    filter: brightness(0) invert(1);
+}
+
+/* Toast System */
+.toast-container { 
+    position: fixed; 
+    top: 20px; 
+    right: 20px; 
+    z-index: 9999; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+}
+
+.toast {
+    background-color: var(--toast-bg);
+    color: var(--text-main);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 16px;
+    min-width: 280px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toast-success { border-left: 4px solid #10b981; }
+.toast-error { border-left: 4px solid #ef4444; }
+
+.hidden {
+    display: none !important;
 }

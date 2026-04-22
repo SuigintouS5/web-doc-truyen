@@ -48,12 +48,13 @@ urlpatterns = [
     path('comment/<int:comment_id>/like/', views.like_comment_ajax, name='like-comment'),
     path('comment/<int:comment_id>/reply/', views.reply_comment_ajax, name='reply-comment'),
     path('comment/<int:comment_id>/edit/', views.edit_comment_ajax, name='edit-comment'),
-    path('comment/<int:comment_id>/delete/', views.delete_comment_ajax, name='delete-comment'),
+    path('comment/<int:comment_id>/delete/', views.delete_comment_ajax, name='delete-comment'), # Đảm bảo views.py có hàm này
     path('comment/<int:comment_id>/pin/', views.pin_comment_ajax, name='pin-comment'),
+    path('chuong/<int:chuong_id>/comment/', views.add_chuong_comment_ajax, name='add-chuong-comment'),
 
     # --- BOOKMARK ---
-    path('chuong/<int:chuong_id>/bookmark/', views.toggle_bookmark_ajax, name='toggle-bookmark'),
-    path('chuong/<int:chuong_id>/is-bookmarked/', views.is_bookmarked_ajax, name='is-bookmarked'),
+    path('chuong/<int:chuong_id>/bookmark/', views.toggle_bookmark_ajax, name='toggle-bookmark-ajax'),
+    
 
     # --- NOTIFICATION (CHỈNH SỬA TẠI ĐÂY) ---
     # Trang danh sách thông báo chính (Nút Chuông dẫn vào đây)
@@ -85,3 +86,5 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+    

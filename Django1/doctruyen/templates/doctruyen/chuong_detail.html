@@ -1,29 +1,122 @@
 {% extends "base.html" %}
 {% load static %}
+{% load thoi_gian %}
 
 {% block title %}{{ chuong.ten }} - {{ truyen.ten }}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/chuong_detail.css' %}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+    /* CSS bổ sung để đạt UI như ảnh 2 mà không cần sửa file .css gốc */
+    .comment-input-area {
+        position: relative;
+        margin-bottom: 30px;
+    }
+    .comment-input-area textarea {
+        width: 100%;
+        min-height: 100px;
+        padding: 15px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        resize: vertical;
+        font-size: 14px;
+        background: #fff;
+    }
+    .action-bar {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 10px;
+    }
+    .btn-send-comment {
+        background-color: #2ecc71 !important; /* Màu xanh ảnh 2 */
+        color: white !important;
+        border: none;
+        padding: 8px 25px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+    .btn-send-comment:hover {
+        background-color: #27ae60 !important;
+    }
+    .no-comment {
+        text-align: center;
+        color: #888;
+        margin-top: 20px;
+    }
+    .comment-item {
+        padding: 15px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .user-name { font-weight: bold; color: #333; margin-right: 10px; }
+    .comment-date { font-size: 12px; color: #999; }
+    .comment-body { margin-top: 5px; color: #444; line-height: 1.5; }
+</style>
 {% endblock %}
 
 {% block content %}
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+<div class="toc-sidebar" id="toc-sidebar">
+    <div class="sidebar-header">
+        <h3>Mục lục</h3>
+        <button id="close-toc" class="close-btn">&times;</button>
+    </div>
+    <div class="sidebar-content">
+        {% for volume in volumes_list %}
+            <div class="toc-volume">
+                <h4>{{ volume.ten|default:"Tập mới" }}</h4>
+                <ul class="toc-chapters">
+                    {% for c in volume.chuongs.all %}
+                        <li class="{% if c.id == chuong.id %}current{% endif %}">
+                            <a href="{% url 'chuong-detail' truyen.slug c.slug %}">
+                                Chương {{ c.so_chuong }}: {{ c.ten }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
 <div class="reader-container" id="reader-container">
     <aside class="reader-toolbar">
         {% if prev_chuong %}
-            <a href="{% url 'chuong-detail' truyen.slug prev_chuong.slug %}" class="nav-btn"><i class="fas fa-chevron-left"></i></a>
+            <a href="{% url 'chuong-detail' truyen.slug prev_chuong.slug %}" class="nav-btn" title="Chương trước">
+                <i class="fas fa-chevron-left"></i>
+            </a>
         {% else %}
             <button class="nav-btn disabled"><i class="fas fa-chevron-left"></i></button>
         {% endif %}
 
-        <a href="{{ truyen.get_absolute_url }}" class="nav-btn"><i class="fas fa-home"></i></a>
-        <button id="btn-settings" class="nav-btn"><i class="fas fa-font"></i></button>
-        <button id="btn-toc" class="nav-btn"><i class="fas fa-info"></i></button>
-        <button id="btn-bookmark" class="nav-btn"><i class="fas fa-bookmark"></i></button>
+        <a href="{{ truyen.get_absolute_url }}" class="nav-btn" title="Về trang truyện">
+            <i class="fas fa-home"></i>
+        </a>
+        
+        <button id="btn-settings" class="nav-btn" title="Tùy chỉnh">
+            <i class="fas fa-font"></i>
+        </button>
+        
+        <button id="btn-toc" class="nav-btn" title="Mục lục">
+            <i class="fas fa-list-ul"></i>
+        </button>
+        
+        <button id="btn-bookmark" 
+                class="nav-btn {% if is_bookmarked %}active{% endif %}" 
+                data-chuong-id="{{ chuong.id }}"
+                title="Đánh dấu chương này">
+            <i class="fas fa-bookmark"></i>
+        </button>
 
         {% if next_chuong %}
-            <a href="{% url 'chuong-detail' truyen.slug next_chuong.slug %}" class="nav-btn"><i class="fas fa-chevron-right"></i></a>
+            <a href="{% url 'chuong-detail' truyen.slug next_chuong.slug %}" class="nav-btn" title="Chương sau">
+                <i class="fas fa-chevron-right"></i>
+            </a>
         {% else %}
             <button class="nav-btn disabled"><i class="fas fa-chevron-right"></i></button>
         {% endif %}
@@ -31,12 +124,12 @@
 
     <article class="reader-main" id="reader-main">
         <header class="chapter-header">
-            <h2 class="vol-title">{{ chuong.volume.ten|default:"Tập mới" }}</h2>
+            <h2 class="vol-title">{{ chuong.volume.ten|default:"Chưa phân tập" }}</h2>
             <h1 class="chuong-title">{{ chuong.ten }}</h1>
             <div class="chuong-meta">
-                <span><i class="fas fa-comment"></i> {{ chuong.comments.count|default:0 }} Bình luận</span>
-                <span><i class="fas fa-pen-nib"></i> Độ dài: {{ chuong.noi_dung|wordcount }} từ</span>
-                <span><i class="fas fa-clock"></i> Cập nhật: {{ chuong.ngay_dang|timesince }} trước</span>
+                <span><i class="fas fa-comment"></i> <span id="comment-count-meta">{{ chuong.comments.count|default:0 }}</span> Bình luận</span>
+                <span><i class="fas fa-pen-nib"></i> {{ chuong.noi_dung|wordcount }} từ</span>
+                <span><i class="fas fa-clock"></i> {{ chuong.ngay_dang|time_vi }} </span>
             </div>
         </header>
 
@@ -44,23 +137,57 @@
             {{ chuong.noi_dung|linebreaks }}
         </div>
 
+        <div class="pagination-bar">
+            {% if prev_chuong %}
+                <a href="{% url 'chuong-detail' truyen.slug prev_chuong.slug %}" class="pagi-btn" title="Chương trước">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+            {% else %}
+                <span class="pagi-btn disabled"><i class="fas fa-angle-double-left"></i></span>
+            {% endif %}
+
+            <a href="{{ truyen.get_absolute_url }}" class="pagi-btn" title="Trang chủ truyện">
+                <i class="fas fa-home"></i>
+            </a>
+
+            {% if next_chuong %}
+                <a href="{% url 'chuong-detail' truyen.slug next_chuong.slug %}" class="pagi-btn" title="Chương sau">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            {% else %}
+                <span class="pagi-btn disabled"><i class="fas fa-angle-double-right"></i></span>
+            {% endif %}
+        </div>
+
         <section class="comment-section-box">
-            <h3 class="box-title"><i class="fas fa-comments"></i> Bình luận</h3>
+            <h3 class="box-title" style="border-left: 5px solid #2ecc71; padding-left: 15px; font-weight: bold; font-size: 22px;">Bình luận</h3>
+            
+            {% if user.is_authenticated %}
             <div class="comment-input-area">
-                <textarea id="comment-text" placeholder="Chia sẻ cảm nghĩ của bạn về chương này..."></textarea>
+                <textarea id="comment-content" placeholder="Nhập bình luận của bạn..."></textarea>
                 <div class="action-bar">
-                    <button class="btn-send-comment">Gửi bình luận</button>
+                    <button id="submit-comment" class="btn-send-comment" data-url="{% url 'add-chuong-comment' chuong.id %}">
+    Gửi
+</button>
                 </div>
             </div>
+            {% else %}
+            <div class="comment-input-area" style="text-align: center; padding: 20px; border: 1px dashed #ccc; border-radius: 8px;">
+                <p>Vui lòng <a href="{% url 'user-login' %}" style="color: #2ecc71; font-weight: bold;">đăng nhập</a> để bình luận.</p>
+            </div>
+            {% endif %}
             
-            <div class="comments-list">
+            <div id="comments-container" class="comments-list">
                 {% for comment in chuong.comments.all %}
                 <div class="comment-item">
-                    <span class="user-name">{{ comment.user.username }}</span>
+                    <div class="comment-user-info">
+                        <span class="user-name">{{ comment.user.username }}</span>
+                        <span class="comment-date">{{ comment.ngay_tao|time_vi }}</span>
+                    </div>
                     <p class="comment-body">{{ comment.noi_dung }}</p>
                 </div>
                 {% empty %}
-                <p class="no-comment">Chưa có bình luận nào cho chương này.</p>
+                <p class="no-comment">Chưa có bình luận nào</p>
                 {% endfor %}
             </div>
         </section>
@@ -68,30 +195,33 @@
 
     <div class="settings-panel" id="settings-panel">
         <div class="panel-header">
-            <h3>Tùy chỉnh</h3>
+            <h3>Tùy chỉnh đọc</h3>
             <button id="close-settings">&times;</button>
         </div>
         <div class="panel-body">
             <div class="s-group">
                 <label>Màu nền</label>
                 <div class="color-grid">
-                    <span class="c-dot white" data-bg="#ffffff" data-text="#333"></span>
-                    <span class="c-dot cream" data-bg="#f4f1ea" data-text="#333"></span>
-                    <span class="c-dot sepia" data-bg="#fbf2d5" data-text="#3e2723"></span>
-                    <span class="c-dot dark" data-bg="#222222" data-text="#ccc"></span>
-                    <span class="c-dot black" data-bg="#000000" data-text="#999"></span>
+                    <span class="c-dot white active" data-bg="#ffffff" data-text="#333" title="Trắng"></span>
+                    <span class="c-dot cream" data-bg="#fdfdfd" data-text="#333" title="Trắng kem"></span>
+                    <span class="c-dot sepia" data-bg="#fbf2d5" data-text="#3e2723" title="Vàng nhạt"></span>
+                    <span class="c-dot dark" data-bg="#222222" data-text="#ccc" title="Xám tối"></span>
+                    <span class="c-dot black" data-bg="#000000" data-text="#999" title="Đen"></span>
                 </div>
             </div>
+            
             <div class="s-group">
                 <label>Cỡ chữ: <b id="fs-label">20px</b></label>
                 <input type="range" id="fs-range" min="16" max="32" value="20" class="slider">
             </div>
+
             <div class="s-group">
                 <label>Font chữ</label>
                 <select id="font-select">
                     <option value="'Times New Roman', serif">Times New Roman</option>
                     <option value="'Arial', sans-serif">Arial</option>
                     <option value="'Roboto', sans-serif">Roboto</option>
+                    <option value="'Palatino Linotype', serif">Palatino</option>
                 </select>
             </div>
         </div>

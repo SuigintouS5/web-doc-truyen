@@ -13,8 +13,8 @@
         {% for item in ds_lich_su %}
             <div class="history-card">
                 <a href="{% url 'truyen-detail' item.truyen.slug %}" class="cover-link">
-                    <img src="{% if item.truyen.anh %}{{ item.truyen.anh.url }}{% else %}{% static 'img/default.jpg' %}{% endif %}" alt="{{ item.truyen.ten }}">
-                </a>
+    <img src="{{ item.truyen.get_anh_url }}" alt="{{ item.truyen.ten }}">
+</a>
                 
                 <div class="history-info">
                     <h3 class="story-title">

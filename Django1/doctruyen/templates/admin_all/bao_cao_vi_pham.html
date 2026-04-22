@@ -68,9 +68,13 @@
         font-size: 13px;
         transition: 0.2s;
     }
-    .btn-action:hover {
+    .btn-action:hover:not(:disabled) {
         background: #f1f5f9;
         border-color: #cbd5e1;
+    }
+    .btn-action:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
     .story-link {
         color: var(--primary);
@@ -80,22 +84,27 @@
     .story-link:hover { text-decoration: underline; }
 </style>
 
+{% csrf_token %}
+
 <div class="filter-bar">
-    <div class="search-box">
+    <form method="GET" class="search-box">
         <i class="fas fa-search"></i>
-        <input type="text" placeholder="Tìm kiếm truyện hoặc user...">
-    </div>
+        <input type="text" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Tìm kiếm truyện hoặc user...">
+    </form>
+    
     <div class="status-filters">
-        <select class="btn-action">
-            <option>Tất cả trạng thái</option>
-            <option>Chờ xử lý</option>
-            <option>Đã xử lý</option>
-            <option>Đã bác bỏ</option>
-        </select>
+        <form method="GET" id="filterForm">
+            <select name="status" class="btn-action" onchange="document.getElementById('filterForm').submit()">
+                <option value="">Tất cả trạng thái</option>
+                <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Chờ xử lý</option>
+                <option value="resolved" {% if request.GET.status == 'resolved' %}selected{% endif %}>Đã xử lý</option>
+                <option value="rejected" {% if request.GET.status == 'rejected' %}selected{% endif %}>Đã bác bỏ</option>
+            </select>
+        </form>
     </div>
 </div>
 
-<div class="card" style="padding: 0;">
+<div class="card" style="padding: 0; border-radius: 12px; overflow: hidden;">
     <table class="report-table">
         <thead>
             <tr>
@@ -118,8 +127,14 @@
                     <div style="font-size: 11px; color: var(--text-muted);">ID: #{{ report.user_report.id }}</div>
                 </td>
                 <td>
-                    <a href="#" class="story-link">{{ report.truyen.ten }}</a>
-                    <div style="font-size: 12px; color: var(--text-muted);">Chương: {{ report.chuong.so_chuong|default:"Toàn bộ" }}</div>
+                    {% if report.truyen %}
+                        <a href="{% url 'truyen-detail' report.truyen.slug %}" class="story-link">{{ report.truyen.ten }}</a>
+                        <div style="font-size: 12px; color: var(--text-muted);">
+                            Chương: {{ report.chuong.so_chuong|default:"Toàn bộ" }}
+                        </div>
+                    {% else %}
+                        <span style="color: #dc2626; font-size: 13px;">[Truyện đã bị xóa]</span>
+                    {% endif %}
                 </td>
                 <td>
                     <div style="max-width: 250px; font-size: 13px;">
@@ -137,9 +152,29 @@
                 </td>
                 <td>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn-action" title="Xem chi tiết"><i class="fas fa-eye"></i></button>
-                        <button class="btn-action" style="color: #16a34a;" title="Chấp nhận"><i class="fas fa-check"></i></button>
-                        <button class="btn-action" style="color: #dc2626;" title="Bác bỏ"><i class="fas fa-times"></i></button>
+                        <a href="{% if report.chuong %}{% url 'chuong-detail' report.truyen.slug report.chuong.id %}{% elif report.truyen %}{% url 'truyen-detail' report.truyen.slug %}{% else %}#{% endif %}" 
+                           class="btn-action" title="Xem nội dung" target="_blank">
+                            <i class="fas fa-eye"></i>
+                        </a>
+
+                        {% if report.trang_thai == 'pending' %}
+                            <button class="btn-action btn-process" 
+                                    data-id="{{ report.id }}" 
+                                    data-action="resolve" 
+                                    style="color: #16a34a;" 
+                                    title="Chấp nhận">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn-action btn-process" 
+                                    data-id="{{ report.id }}" 
+                                    data-action="reject" 
+                                    style="color: #dc2626;" 
+                                    title="Bác bỏ">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        {% else %}
+                            <span style="color: var(--text-muted); font-size: 12px; padding: 6px;">N/A</span>
+                        {% endif %}
                     </div>
                 </td>
             </tr>
@@ -155,12 +190,57 @@
     </table>
 </div>
 
+{% if reports.has_other_pages %}
 <div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
-    <button class="btn-action"><i class="fas fa-chevron-left"></i></button>
-    <button class="btn-action" style="background: var(--primary); color: white; border-color: var(--primary);">1</button>
-    <button class="btn-action">2</button>
-    <button class="btn-action">3</button>
-    <button class="btn-action"><i class="fas fa-chevron-right"></i></button>
+    {% if reports.has_previous %}
+        <a href="?page={{ reports.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="btn-action"><i class="fas fa-chevron-left"></i></a>
+    {% endif %}
+    
+    <button class="btn-action" style="background: var(--primary); color: white; border-color: var(--primary);">{{ reports.number }}</button>
+    
+    {% if reports.has_next %}
+        <a href="?page={{ reports.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}" class="btn-action"><i class="fas fa-chevron-right"></i></a>
+    {% endif %}
 </div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    document.querySelectorAll('.btn-process').forEach(button => {
+        button.onclick = function() {
+            const reportId = this.dataset.id;
+            const action = this.dataset.action;
+            const actionText = action === 'resolve' ? 'CHẤP NHẬN' : 'BÁC BỎ';
+
+            if (!confirm(`Bạn có chắc muốn ${actionText} báo cáo này không?`)) return;
+
+            // Thay đổi URL xử lý tương ứng với urls.py của bạn
+            fetch(`/admin-tong/xu-ly-bao-cao/${reportId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({ 'action': action })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Tải lại trang để cập nhật Badge trạng thái
+                    location.reload();
+                } else {
+                    alert('Lỗi: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra khi kết nối máy chủ.');
+            });
+        };
+    });
+});
+</script>
 
 {% endblock %}

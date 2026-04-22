@@ -1,0 +1,78 @@
+{% extends 'base.html' %} {% load static %}
+
+{% block title %}Thể loại: {{ current_genre.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/genre_filter.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="genre-filter-page">
+    <div class="breadcrumb">
+        <a href="{% url 'truyen-list' %}">🏠 Danh sách</a> 
+    </div>
+
+    <form method="GET" action="{% url 'genre-detail' current_genre.slug %}" id="filter-form">
+        <div class="filter-layout">
+            <main class="story-grid-container">
+                <div class="sort-bar">
+                    <select name="sort" id="sort-select" class="custom-select">
+                        <option value="a-z" {% if request.GET.sort == 'a-z' %}selected{% endif %}>A - Z</option>
+                        <option value="z-a" {% if request.GET.sort == 'z-a' %}selected{% endif %}>Z - A</option>
+                        <option value="new" {% if request.GET.sort == 'new' %}selected{% endif %}>Mới cập nhật</option>
+                        <option value="top" {% if request.GET.sort == 'top' %}selected{% endif %}>Top toàn thời gian</option>
+                    </select>
+                </div>
+
+                <div class="story-grid">
+                    {% for truyen in ds %}
+                    <div class="story-item">
+                        <a href="{% url 'truyen-detail' truyen.slug %}" class="story-link">
+                            <div class="story-cover">
+                                <img src="{{ truyen.get_anh_url }}" alt="{{ truyen.ten }}">
+                                <div class="story-meta-badge">
+                                    <span>Chương {{ truyen.chuong_moi_nhat|default:"0" }}</span>
+                                </div>
+                            </div>
+                        </a>
+                        <h3 class="story-name">
+                            <a href="{% url 'truyen-detail' truyen.slug %}">{{ truyen.ten }}</a>
+                        </h3>
+                    </div>
+                    {% empty %}
+                    <div class="empty-msg">
+                        <p>Không có truyện nào thuộc thể loại này.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </main>
+
+            <aside class="filter-sidebar">
+                <div class="filter-box">
+                    <h4 class="filter-title">Phân loại</h4>
+                    <div class="filter-group">
+                        <label><input type="checkbox" name="type" value="translated" {% if 'translated' in request.GET.getlist %}checked{% endif %}> Truyện dịch</label>
+                        <label><input type="checkbox" name="type" value="original" {% if 'original' in request.GET.getlist %}checked{% endif %}> Truyện sáng tác</label>
+                        <label><input type="checkbox" name="type" value="ai" {% if 'ai' in request.GET.getlist %}checked{% endif %}> Truyện AI</label>
+                    </div>
+                    <button type="submit" class="btn-apply">Áp dụng</button>
+                </div>
+
+                <div class="filter-box">
+                    <h4 class="filter-title">Tình trạng</h4>
+                    <div class="filter-group">
+                        <label><input type="checkbox" name="status" value="ongoing" {% if 'ongoing' in request.GET.getlist %}checked{% endif %}> Đang cập nhật</label>
+                        <label><input type="checkbox" name="status" value="hoan_thanh" {% if 'hoan_thanh' in request.GET.getlist %}checked{% endif %}> Hoàn thành</label>
+                        <label><input type="checkbox" name="status" value="tam_ngung" {% if 'tam_ngung' in request.GET.getlist %}checked{% endif %}> Tạm ngưng</label>
+                    </div>
+                    <button type="submit" class="btn-apply">Áp dụng</button>
+                </div>
+            </aside>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/genre_filter.js' %}"></script>
+{% endblock %}

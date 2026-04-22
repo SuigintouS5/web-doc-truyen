@@ -1,3 +1,5 @@
+{% load static %}
+
 <style>
     /* --- Tab Quản lý - Layout & Cards --- */
     .mgmt-container { display: flex; flex-direction: column; gap: 12px; padding: 5px; }
@@ -53,22 +55,6 @@
     }
     .modal-info-box h4 { margin: 0; font-size: 14px; color: #64748b; font-weight: 500; }
     .modal-info-box .hl-blue { color: #3b82f6; font-weight: 700; }
-
-    /* --- Danh sách thành viên --- */
-    .member-list-label { font-size: 13px; color: #64748b; margin-bottom: 8px; font-weight: 600; }
-    .member-list-wrapper {
-        border: 1px solid #f1f5f9; border-radius: 12px;
-        overflow: hidden; margin-bottom: 20px; background: #fff;
-    }
-    .member-item {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 12px 15px; border-bottom: 1px solid #f1f5f9;
-    }
-    .member-item:last-child { border-bottom: none; }
-    .member-info { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #334155; font-weight: 500; }
-    .member-info i { color: #fbbf24; font-size: 12px; }
-    .remove-member-btn { color: #94a3b8; cursor: pointer; font-size: 14px; transition: color 0.2s; }
-    .remove-member-btn:hover { color: #ef4444; }
 
     /* --- Form Elements --- */
     .ui-input {
@@ -140,39 +126,6 @@
     </div>
 </div>
 
-<div id="shareModal" class="admin-modal">
-    <div class="modal-white-content">
-        <div class="modal-white-header">
-            <h3>Share quyền quản lý</h3>
-            <span class="close-modal-btn" onclick="closeAdminModal('shareModal')">&times;</span>
-        </div>
-        <div class="modal-white-body">
-            <div class="modal-info-box">
-                <h4>Truyện: <span class="hl-blue">{{ truyen.ten }}</span></h4>
-            </div>
-            <div class="member-list-label">Thành viên hiện có:</div>
-            <div class="member-list-wrapper">
-                <div class="member-item">
-                    <div class="member-info"><i class="fas fa-star"></i> {{ truyen.user.username }} (Chủ)</div>
-                </div>
-                {% for colab in truyen.collaborators.all %}
-                <div class="member-item">
-                    <div class="member-info">{{ colab.username }}</div>
-                    <div class="remove-member-btn" title="Gỡ quyền"><i class="fas fa-user-minus"></i></div>
-                </div>
-                {% empty %}
-                <div class="member-item" style="color: #94a3b8; font-style: italic; font-size: 13px;">Chưa có người cùng quản lý.</div>
-                {% endfor %}
-            </div>
-            <div class="warning-text-box">Không thêm thành viên nếu chưa được đồng ý.</div>
-            <div style="display: flex; gap: 8px;">
-                <input type="text" id="shareUsernameInput" class="ui-input" placeholder="Tên thành viên mới...">
-                <button class="btn-black" id="shareConfirmBtn" style="white-space: nowrap;">Thêm</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div id="deleteModal" class="admin-modal">
     <div class="modal-white-content" style="max-width: 420px;">
         <div class="modal-white-body" style="text-align: center; padding: 40px 30px;">
@@ -181,7 +134,7 @@
             </div>
             <h3 style="margin: 0 0 10px 0; color: #1e293b; font-size: 20px;">Xác nhận xóa truyện?</h3>
             <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">Truyện <span style="font-weight: 700; color: #ef4444;">{{ truyen.ten }}</span> sẽ bị xóa vĩnh viễn.</p>
-            <textarea class="ui-input" style="min-height: 80px; margin-bottom: 20px;" placeholder="Lý do xóa (không bắt buộc)..."></textarea>
+            <textarea id="deleteReasonInput" class="ui-input" style="min-height: 80px; margin-bottom: 20px;" placeholder="Lý do xóa (không bắt buộc)..."></textarea>
             <button class="btn-delete-red" id="deleteConfirmBtn" style="margin-bottom: 12px;">Xác nhận xóa</button>
             <div style="color: #94a3b8; font-size: 14px; cursor: pointer; font-weight: 600;" onclick="closeAdminModal('deleteModal')">Quay lại</div>
         </div>
@@ -189,12 +142,13 @@
 </div>
 
 <script>
-    // Modal Logic
     function openAdminModal(id) { document.getElementById(id).classList.add('open'); }
     function closeAdminModal(id) { document.getElementById(id).classList.remove('open'); }
-    window.onclick = function(e) { if (e.target.classList.contains('admin-modal')) closeAdminModal(e.target.id); }
+    
+    window.onclick = function(e) { 
+        if (e.target.classList.contains('admin-modal')) closeAdminModal(e.target.id); 
+    }
 
-    // CSRF Helper
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -210,64 +164,60 @@
         return cookieValue;
     }
 
-    // --- Unified Fetch Function ---
-    async function postData(formData, modalId) {
-        // Đảm bảo đường dẫn này tồn tại trong urls.py
+    // --- Unified Fetch Function (Sửa lỗi 400 bằng JSON) ---
+    async function postData(jsonData, modalId) {
         const url = "/notifications/api/create/"; 
         
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                body: formData,
-                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken') 
+                },
+                body: JSON.stringify(jsonData)
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                throw new Error(`Lỗi kết nối (${response.status}). Hãy kiểm tra urls.py.`);
+                // Hiển thị lỗi từ server nếu có (ví dụ: "Lý do không được để trống")
+                throw new Error(data.error || data.message || `Lỗi hệ thống (${response.status})`);
             }
 
-            const data = await response.json();
             if (data.status === 'success') {
-                alert(data.message || "Đã gửi thành công!");
+                alert(data.message || "Đã gửi yêu cầu thành công!");
                 closeAdminModal(modalId);
-                if(modalId === 'transferModal' || modalId === 'deleteModal') window.location.reload();
+                // Reload trang sau 1s để cập nhật trạng thái
+                setTimeout(() => window.location.reload(), 1000);
             } else {
-                alert(data.message || "Yêu cầu bị từ chối.");
+                alert(data.message || "Yêu cầu không thể thực hiện.");
             }
         } catch (error) {
-            alert("Lỗi hệ thống: " + error.message);
+            alert("Thông báo: " + error.message);
         }
     }
 
     // --- Event Listeners ---
     document.getElementById('transferConfirmBtn').onclick = () => {
         const user = document.getElementById('transferUsernameInput').value.trim();
-        if (!user) return alert("Nhập tên người nhận!");
-        const fd = new FormData();
-        fd.append('loai', 'transfer');
-        fd.append('receiver_username', user);
-        fd.append('truyen_id', '{{ truyen.id }}');
-        fd.append('message', "Yêu cầu chuyển quyền sở hữu truyện: {{ truyen.ten }}");
-        postData(fd, 'transferModal');
-    };
-
-    document.getElementById('shareConfirmBtn').onclick = () => {
-        const user = document.getElementById('shareUsernameInput').value.trim();
-        if (!user) return alert("Nhập tên thành viên!");
-        const fd = new FormData();
-        fd.append('loai', 'share');
-        fd.append('receiver_username', user);
-        fd.append('truyen_id', '{{ truyen.id }}');
-        fd.append('message', "Mời bạn tham gia quản lý truyện: {{ truyen.ten }}");
-        postData(fd, 'shareModal');
+        if (!user) return alert("Vui lòng nhập tên người nhận quyền!");
+        
+        postData({
+            'loai': 'transfer',
+            'receiver_username': user,
+            'truyen_id': '{{ truyen.id }}',
+            'noi_dung': "Yêu cầu chuyển quyền sở hữu truyện: {{ truyen.ten }}"
+        }, 'transferModal');
     };
 
     document.getElementById('deleteConfirmBtn').onclick = () => {
-        const reason = document.querySelector('#deleteModal textarea').value.trim();
-        const fd = new FormData();
-        fd.append('loai', 'delete_request');
-        fd.append('truyen_id', '{{ truyen.id }}');
-        fd.append('message', reason || "Yêu cầu xóa truyện: {{ truyen.ten }}");
-        postData(fd, 'deleteModal');
+        const reason = document.getElementById('deleteReasonInput').value.trim();
+        // Gửi yêu cầu xóa kèm lý do
+        postData({
+            'loai': 'delete_request',
+            'truyen_id': '{{ truyen.id }}',
+            'noi_dung': reason || "Yêu cầu xóa truyện: {{ truyen.ten }}"
+        }, 'deleteModal');
     };
 </script>

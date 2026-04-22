@@ -201,3 +201,58 @@
     .profile-grid-wrapper { flex-direction: column; }
     .profile-sidebar-column { width: 100%; position: static; }
 }
+
+/* UI cho nút "Cài đặt" nhỏ */
+.btn-setting-small {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #666;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-setting-small:hover {
+    background-color: #f8f9fa;
+    border-color: #ccc;
+    color: #000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* UI cho nút "+ Thêm mạng xã hội" */
+.btn-add-social {
+    width: 100%;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border: 1px dashed #ccc; /* Viền đứt đoạn tạo cảm giác action thêm */
+    border-radius: 8px;
+    color: #555;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-add-social:hover {
+    background-color: #f0f0f0;
+    border-color: #999;
+    color: #000;
+}
+
+/* UI đồng bộ cho nút Lưu tất cả (Black style) */
+.modal-actions .btn-primary {
+    background-color: #111 !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 600;
+}
+
+.modal-actions .btn-primary:hover {
+    opacity: 0.9;
+}

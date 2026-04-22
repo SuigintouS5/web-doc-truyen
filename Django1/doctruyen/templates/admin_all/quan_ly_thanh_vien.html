@@ -1,0 +1,117 @@
+{% extends 'admin_all/base_admin.html' %}
+
+{% block title %}Quản lý thành viên{% endblock %}
+{% block page_title %}Danh sách thành viên hệ thống{% endblock %}
+
+{% block content %}
+<style>
+    .filter-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+    .search-box { position: relative; width: 300px; }
+    .search-box input { width: 100%; padding: 10px 15px 10px 40px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; }
+    .search-box i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+    
+    .user-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+    .user-table th, .user-table td { padding: 15px 20px; text-align: left; border-bottom: 1px solid var(--border-color); }
+    .user-table th { background: #f8fafc; color: var(--text-muted); font-size: 13px; text-transform: uppercase; font-weight: 600; }
+    
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    .user-avatar { width: 35px; height: 35px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; }
+    
+    .badge { padding: 5px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-admin { background: #e0e7ff; color: #4338ca; }
+    .badge-user { background: #f1f5f9; color: #475569; }
+    .badge-active { background: #dcfce7; color: #16a34a; }
+    .badge-blocked { background: #fee2e2; color: #dc2626; }
+
+    .btn-action { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: white; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+    .btn-action:hover { background: #f1f5f9; }
+</style>
+
+<div class="filter-bar">
+    <form method="GET" class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" name="search" placeholder="Tìm tên hoặc email..." value="{{ search_query }}">
+    </form>
+</div>
+
+<div class="card" style="padding: 0;">
+    <table class="user-table">
+        <thead>
+            <tr>
+                <th>Thành viên</th>
+                <th>Email</th>
+                <th>Vai trò</th>
+                <th>Ngày tham gia</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>
+                    <div class="user-info">
+                        <div class="user-avatar">{{ user.username|slice:":2"|upper }}</div>
+                        <div>
+                            <div style="font-weight: 600;">{{ user.username }}</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">ID: #{{ user.id }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="font-size: 13px;">{{ user.email }}</td>
+                <td>
+                    {% if user.is_superuser %}
+                        <span class="badge badge-admin">Quản trị viên</span>
+                    {% else %}
+                        <span class="badge badge-user">Người dùng</span>
+                    {% endif %}
+                </td>
+                <td style="font-size: 13px; color: var(--text-muted);">
+                    {{ user.date_joined|date:"d/m/Y" }}
+                </td>
+                <td>
+                    {% if user.is_active %}
+                        <span class="badge badge-active">Hoạt động</span>
+                    {% else %}
+                        <span class="badge badge-blocked">Đã khóa</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 8px;">
+                        <form action="{% url 'admin_change_role' user.id %}" method="POST" onsubmit="return confirm('Xác nhận đổi vai trò cho {{ user.username }}?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-action" title="Chỉnh sửa quyền">
+                                <i class="fas fa-user-shield"></i>
+                            </button>
+                        </form>
+
+                        <form action="{% url 'admin_xoa_user' user.id %}" method="POST" onsubmit="return confirm('CẢNH BÁO: Bạn có chắc muốn xóa vĩnh viễn tài khoản {{ user.username }}? Dữ liệu không thể khôi phục!')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-action" style="color: #dc2626;" title="Xóa tài khoản">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 20px; color: var(--text-muted);">Không tìm thấy thành viên nào.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+    {% if users.has_previous %}
+        <a href="?page={{ users.previous_page_number }}&search={{ search_query }}" class="btn-action"><i class="fas fa-chevron-left"></i></a>
+    {% endif %}
+    
+    <span class="btn-action" style="background: var(--primary); color: white;">{{ users.number }}</span>
+    
+    {% if users.has_next %}
+        <a href="?page={{ users.next_page_number }}&search={{ search_query }}" class="btn-action"><i class="fas fa-chevron-right"></i></a>
+    {% endif %}
+</div>
+{% endblock %}

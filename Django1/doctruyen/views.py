@@ -1,8 +1,11 @@
+import json
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+User = get_user_model() 
+from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils.text import slugify
@@ -10,7 +13,7 @@ from django.db import models, transaction, IntegrityError
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import (
-    Truyen, Genre, Comment, Chuong, LichSuDoc, Volume,
+    User,Truyen, Genre, Comment, Chuong, LichSuDoc, Volume,
     Follow, Rating, CommentLike, CommentReply, Notification, Bookmark,Profile ,SocialLink
 )
 
@@ -26,7 +29,10 @@ def truyen_detail(request, slug):
     truyen = get_object_or_404(Truyen, slug=slug)
     genres = truyen.genres.all()
     volumes = truyen.volumes.all().prefetch_related('chuongs')
-    comments = Comment.objects.filter(truyen=truyen).select_related("user")
+    
+    # Lấy toàn bộ bình luận của TRUYỆN + bình luận của tất cả CHƯƠNG thuộc truyện này
+    # Dùng prefetch_related('replies') để lấy các câu trả lời mà không tốn nhiều query (N+1)
+    comments = Comment.objects.filter(truyen=truyen).select_related("user", "chuong").prefetch_related('replies__user', 'likes')
     
     can_edit = False
     if request.user.is_authenticated:
@@ -38,18 +44,42 @@ def truyen_detail(request, slug):
         'truyen': truyen,
         'genres': genres,
         'volumes': volumes,
-        'comments': comments,
+        'comments': comments, # Danh sách này giờ đã bao gồm cả bình luận chương
         'can_edit': can_edit
     })
 
 def genre_detail(request, slug):
     genre = get_object_or_404(Genre, slug=slug)
     truyens = genre.truyens.all()
-    return render(request, 'doctruyen/truyen_list.html', {
+
+    # Lấy dữ liệu lọc
+    selected_types = request.GET.getlist('type')
+    selected_status = request.GET.getlist('status')
+    sort_by = request.GET.get('sort', 'a-z')
+
+    # Lọc theo Phân loại (Trường trong model là story_type)
+    if selected_types:
+        truyens = truyens.filter(story_type__in=selected_types)
+
+    # Lọc theo Tình trạng (Trường trong model là trang_thai)
+    if selected_status:
+        truyens = truyens.filter(trang_thai__in=selected_status)
+
+    # Sắp xếp
+    if sort_by == 'a-z':
+        truyens = truyens.order_by('ten')
+    elif sort_by == 'z-a':
+        truyens = truyens.order_by('-ten')
+    elif sort_by == 'new':
+        truyens = truyens.order_by('-ngay_dang') # Theo Meta: ordering = ["-ngay_dang"]
+    elif sort_by == 'top':
+        # Nếu chưa có trường views, tạm thời sắp xếp theo ID hoặc ngày đăng
+        truyens = truyens.order_by('-id') 
+
+    return render(request, 'doctruyen/genre_filter.html', {
         'ds': truyens, 
         'current_genre': genre
     })
-
 # =========================
 # 2. XỬ LÝ CHƯƠNG (READER UI)
 # =========================
@@ -58,6 +88,12 @@ def chuong_detail(request, truyen_slug, chuong_slug):
     chuong = get_object_or_404(Chuong, volume__truyen__slug=truyen_slug, slug=chuong_slug)
     truyen = chuong.volume.truyen
     
+    # --- PHẦN THÊM MỚI: Kiểm tra bookmark ngay tại đây ---
+    is_bookmarked = False
+    if request.user.is_authenticated:
+        is_bookmarked = Bookmark.objects.filter(user=request.user, chuong=chuong).exists()
+    # ---------------------------------------------------
+
     if request.user.is_authenticated:
         LichSuDoc.objects.update_or_create(
             user=request.user,
@@ -67,7 +103,7 @@ def chuong_detail(request, truyen_slug, chuong_slug):
     
     volumes_list = truyen.volumes.all().prefetch_related('chuongs')
 
-    # Tìm chương TRƯỚC và SAU
+    # Tìm chương TRƯỚC và SAU (Giữ nguyên logic xịn của bạn)
     prev_chuong = Chuong.objects.filter(
         volume__truyen=truyen
     ).filter(
@@ -88,6 +124,7 @@ def chuong_detail(request, truyen_slug, chuong_slug):
         'volumes_list': volumes_list,
         'prev_chuong': prev_chuong,
         'next_chuong': next_chuong,
+        'is_bookmarked': is_bookmarked, # Truyền biến này ra template
     })
 
 # =========================
@@ -305,24 +342,47 @@ def delete_chapter_ajax(request, chapter_id):
 
 def login_view(request):
     if request.method == "POST":
-        user = authenticate(request, username=request.POST.get("username"), password=request.POST.get("password"))
-        if user:
+        # Lấy thông tin từ form
+        username_input = request.POST.get("username")
+        password_input = request.POST.get("password")
+        
+        # Kiểm tra xem request có phải là AJAX không
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        
+        # Xác thực người dùng (Lưu ý: authenticate thường dùng username, nếu bạn dùng email thì phải cấu chỉnh backend hoặc truyền đúng tham số)
+        user = authenticate(request, username=username_input, password=password_input)
+        
+        if user is not None:
             login(request, user)
+            if is_ajax:
+                return JsonResponse({"success": True})
             return redirect("truyen-list")
+        else:
+            if is_ajax:
+                return JsonResponse({
+                    "success": False, 
+                    "message": "Tên đăng nhập hoặc mật khẩu không chính xác!"
+                })
+            # Nếu không phải AJAX (submit truyền thống), có thể thông báo qua messages rồi redirect
+            return redirect("truyen-list")
+
+    # Nếu truy cập bằng GET (không qua modal)
     return redirect("truyen-list")
 
 def register_view(request):
     if request.method == "POST":
+        u_email = request.POST.get("email")
         u_name = request.POST.get("username")
-        if not User.objects.filter(username=u_name).exists():
-            User.objects.create_user(username=u_name, password=request.POST.get("password"))
+        u_pass = request.POST.get("password")
+        if not User.objects.filter(email=u_email).exists():
+            User.objects.create_user(email=u_email, username=u_name, password=u_pass)
     return redirect("truyen-list")
 
 def logout_view(request):
     logout(request)
     return redirect("truyen-list")
 
-
+User = get_user_model()
 def profile_view(request , username=None):
     if username:
         display_user = get_object_or_404(User, username=username)
@@ -344,9 +404,8 @@ def profile_view(request , username=None):
 @login_required
 def update_profile_image_ajax(request):
     if request.method == 'POST':
-        profile = getattr(request.user, 'profile', None)
-        if not profile:
-            return JsonResponse({"status": "error", "message": "Profile không tồn tại"}, status=404)
+        # get_or_create trả về một tuple (object, created)
+        profile, created = Profile.objects.get_or_create(user=request.user)
 
         changed = False
         if 'avatar' in request.FILES:
@@ -358,8 +417,14 @@ def update_profile_image_ajax(request):
 
         if changed:
             profile.save()
-            return JsonResponse({"status": "success", "avatar_url": profile.avatar.url if profile.avatar else ""})
-    return JsonResponse({"status": "error"}, status=400)
+            # BẮT BUỘC trả về cả 2 URL để JS cập nhật đúng khung hình
+            return JsonResponse({
+                "status": "success", 
+                "avatar_url": profile.avatar.url if profile.avatar else "",
+                "banner_url": profile.banner.url if profile.banner else ""
+            })
+            
+    return JsonResponse({"status": "error", "message": "Yêu cầu không hợp lệ"}, status=400)
 
 from django.core.exceptions import PermissionDenied
 
@@ -452,23 +517,23 @@ def update_profile_ajax(request):
         import json
         try:
             data = json.loads(request.body)
-            username = data.get('username', '').strip()
-            email = data.get('email', '').strip()
+            new_username = data.get('username', '').strip()
+            new_email = data.get('email', '').strip()
             
             user = request.user
             errors = {}
 
-            if username != user.username and User.objects.filter(username=username).exists():
+            if new_username != user.username and User.objects.filter(username=new_username).exists():
                 errors['username'] = 'Tên đăng nhập đã tồn tại'
             
-            if email != user.email and User.objects.filter(email=email).exists():
+            if new_email != user.email and User.objects.filter(email=new_email).exists():
                 errors['email'] = 'Email đã tồn tại'
 
             if errors:
                 return JsonResponse({'status': 'error', 'errors': errors}, status=400)
             
-            user.username = username
-            user.email = email
+            user.username = new_username
+            user.email = new_email
             user.save()
             
             # Giữ trạng thái đăng nhập sau khi đổi username
@@ -666,168 +731,183 @@ def get_user_rating_ajax(request, truyen_id):
 # 9. BÌNH LUẬN & REPLY (AJAX)
 # =========================
 
+
+
+# --- PHẦN 1: LẤY VÀ THÊM (GIỮ TỪ CODE 1) ---
+
+def get_comments_ajax(request, truyen_id):
+    try:
+        truyen = get_object_or_404(Truyen, id=truyen_id)
+        chuong_id = request.GET.get('chuong_id')
+        query = Comment.objects.filter(truyen=truyen)
+        if chuong_id:
+            query = query.filter(chuong_id=chuong_id)
+
+        comments = query.select_related('user', 'user__profile', 'chuong').prefetch_related(
+            'likes', 'replies', 'replies__user', 'replies__user__profile'
+        ).order_by('-is_pinned', '-ngay_tao')
+        
+        comments_data = []
+        for comment in comments:
+            avatar_url = comment.user.profile.avatar.url if hasattr(comment.user, 'profile') and comment.user.profile.avatar else '/static/img/avatar.jpg'
+            display_name = comment.user.username or comment.user.email.split('@')[0]
+            
+            replies_list = []
+            for r in comment.replies.all():
+                r_avatar = r.user.profile.avatar.url if hasattr(r.user, 'profile') and r.user.profile.avatar else '/static/img/avatar.jpg'
+                replies_list.append({
+                    'id': r.id,
+                    'username': r.user.username or r.user.email.split('@')[0],
+                    'avatar': r_avatar,
+                    'noi_dung': r.noi_dung,
+                    'ngay_tao': r.ngay_tao.strftime('%H:%M %d-%m-%Y'),
+                    'can_delete': (request.user == r.user or request.user.is_staff)
+                })
+
+            comments_data.append({
+                'id': comment.id,
+                'username': display_name,
+                'avatar': avatar_url,
+                'noi_dung': comment.noi_dung,
+                'ngay_tao': comment.ngay_tao.strftime('%H:%M %d-%m-%Y'),
+                'total_likes': comment.total_likes,
+                'user_liked': comment.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
+                'is_pinned': comment.is_pinned,
+                'chuong_ten': f"Chương {comment.chuong.so_chuong}" if comment.chuong else "Tổng quan",
+                'can_delete': (request.user == comment.user or request.user.is_staff),
+                'replies': replies_list
+            })
+        return JsonResponse({'comments': comments_data})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 @login_required
 def add_comment_ajax(request, truyen_id):
-    """AJAX: Thêm bình luận mới"""
     if request.method == 'POST':
-        import json
         try:
             data = json.loads(request.body)
             noi_dung = data.get('noi_dung', '').strip()
-            chuong_id = data.get('chuong_id', None)
-            
+            chuong_id = data.get('chuong_id')
             if not noi_dung:
-                return JsonResponse({'status': 'error', 'message': 'Bình luận không được rỗng'}, status=400)
+                return JsonResponse({'status': 'error', 'message': 'Nội dung trống'}, status=400)
             
             truyen = get_object_or_404(Truyen, id=truyen_id)
-            chuong = None
-            if chuong_id:
-                chuong = get_object_or_404(Chuong, id=chuong_id)
-            
-            comment = Comment.objects.create(
-                truyen=truyen,
-                chuong=chuong,
-                user=request.user,
-                noi_dung=noi_dung
-            )
-            
-            return JsonResponse({
-                'status': 'success',
-                'comment_id': comment.id,
-                'username': request.user.username,
-                'avatar': comment.user.profile.avatar.url if hasattr(comment.user, 'profile') and comment.user.profile.avatar else '/static/img/avatar.jpg',
-                'noi_dung': comment.noi_dung,
-                'ngay_tao': comment.ngay_tao.strftime('%Y-%m-%d %H:%M'),
-                'chuong_ten': f"Chương {chuong.so_chuong}: {chuong.ten}" if chuong else "Tổng quan",
-                'total_likes': 0
-            })
+            chuong = get_object_or_404(Chuong, id=chuong_id) if chuong_id else None
+            Comment.objects.create(truyen=truyen, user=request.user, noi_dung=noi_dung, chuong=chuong)
+            return JsonResponse({'status': 'success'})
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-    
-    return JsonResponse({'status': 'error', 'message': 'Phương thức không hỗ trợ'}, status=405)
-
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    return JsonResponse({'status': 'error'}, status=405)
 
 @login_required
 def like_comment_ajax(request, comment_id):
-    """AJAX: Like/Unlike bình luận"""
     comment = get_object_or_404(Comment, id=comment_id)
-    
-    like = CommentLike.objects.filter(comment=comment, user=request.user).first()
-    
-    if like:
+    like, created = CommentLike.objects.get_or_create(comment=comment, user=request.user)
+    action = 'liked' if created else 'unliked'
+    if not created:
         like.delete()
-        action = 'unliked'
-    else:
-        CommentLike.objects.create(comment=comment, user=request.user)
-        action = 'liked'
-        
-        # Tạo thông báo nếu không phải author của comment
-        if comment.user != request.user:
-            Notification.objects.create(
-                user=comment.user,
-                noi_dung=f"{request.user.username} đã like bình luận của bạn",
-                loai='like_comment',
-                truyen=comment.truyen,
-                comment=comment,
-                user_from=request.user
-            )
-    
-    total_likes = comment.total_likes
-    return JsonResponse({
-        'status': 'success',
-        'action': action,
-        'total_likes': total_likes
-    })
-
+    return JsonResponse({'status': 'success', 'action': action, 'total_likes': comment.total_likes})
 
 @login_required
 def reply_comment_ajax(request, comment_id):
-    """AJAX: Reply bình luận"""
     if request.method == 'POST':
-        import json
+        data = json.loads(request.body)
+        noi_dung = data.get('noi_dung', '').strip()
+        comment = get_object_or_404(Comment, id=comment_id)
+        CommentReply.objects.create(comment=comment, user=request.user, noi_dung=noi_dung)
+        if comment.user != request.user:
+            Notification.objects.create(
+                user=comment.user, user_from=request.user, truyen=comment.truyen,
+                noi_dung=f"{request.user.username} đã phản hồi bình luận của bạn", loai='reply_comment'
+            )
+        return JsonResponse({'status': 'success'})
+
+# --- PHẦN 2: SỬA, XÓA, GHIM (DÙNG CODE 2 CỦA BẠN - ĐÃ TINH CHỈNH) ---
+
+@login_required
+def edit_comment_ajax(request, comment_id):
+    """AJAX: Sửa bình luận (Hỗ trợ cả Comment gốc và Reply)"""
+    obj = Comment.objects.filter(id=comment_id).first()
+    if not obj:
+        obj = get_object_or_404(CommentReply, id=comment_id)
+    
+    if request.user != obj.user and not request.user.is_staff:
+        return JsonResponse({'status': 'error', 'message': 'Không có quyền'}, status=403)
+    
+    if request.method == 'POST':
         try:
             data = json.loads(request.body)
             noi_dung = data.get('noi_dung', '').strip()
-            
             if not noi_dung:
-                return JsonResponse({'status': 'error', 'message': 'Reply không được rỗng'}, status=400)
+                return JsonResponse({'status': 'error', 'message': 'Nội dung không được rỗng'}, status=400)
             
-            comment = get_object_or_404(Comment, id=comment_id)
+            obj.noi_dung = noi_dung
+            if hasattr(obj, 'is_edited'): obj.is_edited = True
+            obj.save()
             
-            reply = CommentReply.objects.create(
-                comment=comment,
-                user=request.user,
-                noi_dung=noi_dung
-            )
-            
-            # Tạo thông báo
-            if comment.user != request.user:
-                Notification.objects.create(
-                    user=comment.user,
-                    noi_dung=f"{request.user.username} đã reply bình luận của bạn",
-                    loai='reply_comment',
-                    truyen=comment.truyen,
-                    comment=comment,
-                    user_from=request.user
-                )
-            
-            return JsonResponse({
-                'status': 'success',
-                'reply_id': reply.id,
-                'username': request.user.username,
-                'noi_dung': reply.noi_dung,
-                'ngay_tao': reply.ngay_tao.strftime('%Y-%m-%d %H:%M')
-            })
+            return JsonResponse({'status': 'success', 'noi_dung': obj.noi_dung})
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-    
-    return JsonResponse({'status': 'error', 'message': 'Phương thức không hỗ trợ'}, status=405)
-
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    return JsonResponse({'status': 'error'}, status=405)
 
 @login_required
-def get_comments_ajax(request, truyen_id):
-    """AJAX: Lấy danh sách bình luận"""
-    truyen = get_object_or_404(Truyen, id=truyen_id)
-    comments = Comment.objects.filter(truyen=truyen).select_related('user', 'chuong').prefetch_related('likes', 'replies')
+def delete_comment_ajax(request, comment_id):
+    """AJAX: Xóa bình luận"""
+    obj = Comment.objects.filter(id=comment_id).first()
+    is_reply = False
+    if not obj:
+        obj = get_object_or_404(CommentReply, id=comment_id)
+        is_reply = True
     
-    comments_data = []
-    for comment in comments:
-        replies_data = [
-            {
-                'id': reply.id,
-                'username': reply.user.username,
-                'avatar': reply.user.profile.avatar.url if hasattr(reply.user, 'profile') and reply.user.profile.avatar else '/static/img/avatar.jpg',
-                'noi_dung': reply.noi_dung,
-                'ngay_tao': reply.ngay_tao.strftime('%Y-%m-%d %H:%M')
-            }
-            for reply in comment.replies.all()
-        ]
-        
-        user_liked = request.user in [like.user for like in comment.likes.all()]
-        can_edit = request.user == comment.user or request.user.is_staff
-        can_delete = request.user == comment.user or request.user.is_staff
-        can_pin = request.user == truyen.author or request.user.is_staff
-        
-        comments_data.append({
-            'id': comment.id,
-            'username': comment.user.username,
-            'avatar': comment.user.profile.avatar.url if hasattr(comment.user, 'profile') and comment.user.profile.avatar else '/static/img/avatar.jpg',
-            'noi_dung': comment.noi_dung,
-            'ngay_tao': comment.ngay_tao.strftime('%Y-%m-%d %H:%M'),
-            'ngay_chinh_sua': comment.ngay_chinh_sua.strftime('%Y-%m-%d %H:%M') if comment.is_edited else None,
-            'total_likes': comment.total_likes,
-            'user_liked': user_liked,
-            'is_pinned': comment.is_pinned,
-            'is_edited': comment.is_edited,
-            'chuong_ten': f"Chương {comment.chuong.so_chuong}: {comment.chuong.ten}" if comment.chuong else "Tổng quan",
-            'replies': replies_data,
-            'can_edit': can_edit,
-            'can_delete': can_delete,
-            'can_pin': can_pin
-        })
+    if request.user != obj.user and not request.user.is_staff:
+        return JsonResponse({'status': 'error', 'message': 'Không có quyền'}, status=403)
     
-    return JsonResponse({'comments': comments_data})
+    obj.delete()
+    return JsonResponse({'status': 'success', 'is_reply': is_reply})
 
+@login_required
+def pin_comment_ajax(request, comment_id):
+    """AJAX: Ghim/bỏ ghim bình luận"""
+    comment = get_object_or_404(Comment, id=comment_id)
+    if request.user != comment.truyen.author and not request.user.is_staff:
+        return JsonResponse({'status': 'error', 'message': 'Chỉ tác giả mới được ghim'}, status=403)
+    
+    comment.is_pinned = not comment.is_pinned
+    comment.save()
+    return JsonResponse({'status': 'success', 'is_pinned': comment.is_pinned})
+
+@login_required
+def add_chuong_comment_ajax(request, chuong_id):
+    if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        noi_dung = request.POST.get('noi_dung')
+        if not noi_dung:
+            return JsonResponse({'status': 'error', 'message': 'Nội dung trống'}, status=400)
+        
+        try:
+            # 1. Lấy đối tượng Chương
+            chuong_obj = Chuong.objects.get(id=chuong_id)
+            
+            # 2. Truy xuất Truyện từ Chương (Chuong -> Volume -> Truyen)
+            truyen_obj = chuong_obj.volume.truyen
+            
+            # 3. Tạo bình luận với đầy đủ truyen và chuong
+            comment = Comment.objects.create(
+                user=request.user,
+                truyen=truyen_obj, # Phải có cái này mới hết lỗi 500
+                chuong=chuong_obj,
+                noi_dung=noi_dung
+            )
+            return JsonResponse({
+                'status': 'success',
+                'username': request.user.username,
+                'noi_dung': comment.noi_dung
+            })
+        except Chuong.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Chương không tồn tại'}, status=404)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'Yêu cầu không hợp lệ'}, status=400)
 
 # =========================
 # 10. BOOKMARK CHƯƠNG (AJAX)
@@ -835,25 +915,19 @@ def get_comments_ajax(request, truyen_id):
 
 @login_required
 def toggle_bookmark_ajax(request, chuong_id):
-    """AJAX: Toggle bookmark chương"""
-    chuong = get_object_or_404(Chuong, id=chuong_id)
-    
-    bookmark = Bookmark.objects.filter(user=request.user, chuong=chuong).first()
-    
-    if bookmark:
-        bookmark.delete()
-        return JsonResponse({'status': 'success', 'action': 'removed'})
-    else:
-        Bookmark.objects.create(user=request.user, chuong=chuong)
-        return JsonResponse({'status': 'success', 'action': 'added'})
-
-
-@login_required
-def is_bookmarked_ajax(request, chuong_id):
-    """AJAX: Kiểm tra đã bookmark chưa"""
-    is_bookmarked = Bookmark.objects.filter(user=request.user, chuong_id=chuong_id).exists()
-    return JsonResponse({'is_bookmarked': is_bookmarked})
-
+    """AJAX: Toggle bookmark chương - Chỉ nhận POST để bảo mật"""
+    if request.method == "POST":
+        chuong = get_object_or_404(Chuong, id=chuong_id)
+        bookmark = Bookmark.objects.filter(user=request.user, chuong=chuong).first()
+        
+        if bookmark:
+            bookmark.delete()
+            return JsonResponse({'status': 'success', 'action': 'removed'})
+        else:
+            Bookmark.objects.create(user=request.user, chuong=chuong)
+            return JsonResponse({'status': 'success', 'action': 'added'})
+            
+    return JsonResponse({'status': 'error', 'message': 'Yêu cầu không hợp lệ'}, status=400)
 
 # =========================
 # 11. THÔNG BÁO (NOTIFICATIONS)
@@ -927,48 +1001,91 @@ def mark_notification_read_ajax(request, notification_id):
 
 @login_required
 def create_notification_ajax(request):
-    """AJAX: Tạo thông báo (transfer/share/delete_request)
-    POST expected: receiver_id, loai, truyen_id (optional), message
+    """
+    AJAX: Tạo thông báo (chuyển quyền/share/yêu cầu xóa)
+    Xử lý dữ liệu dạng JSON từ Fetch API.
     """
     if request.method != 'POST':
-        return JsonResponse({'status': 'error', 'message': 'Phương thức không hỗ trợ'}, status=405)
+        return JsonResponse({
+            'status': 'error', 
+            'message': 'Phương thức không được hỗ trợ.'
+        }, status=405)
 
-    loai = request.POST.get('loai')
-    receiver_id = request.POST.get('receiver_id')
-    receiver_username = request.POST.get('receiver_username')
-    truyen_id = request.POST.get('truyen_id')
-    message = request.POST.get('message', '')
-
-    # For delete_request we don't require a specific receiver.
-    if loai != 'delete_request' and not (receiver_id or receiver_username):
-        return JsonResponse({'status': 'error', 'message': 'Dữ liệu không hợp lệ'}, status=400)
-
-    from django.contrib.auth import get_user_model
-    User = get_user_model()
-    receiver = None
     try:
+        # Giải mã dữ liệu JSON từ request body
+        data = json.loads(request.body)
+        
+        loai = data.get('loai')
+        truyen_id = data.get('truyen_id')
+        receiver_username = data.get('receiver_username')
+        receiver_id = data.get('receiver_id')
+        
+        # Đồng bộ hóa tên biến: Nhận 'noi_dung' từ JS và gán vào message
+        message = data.get('noi_dung') or data.get('message') or ''
+
+        User = get_user_model()
+        
+        # 1. Lấy đối tượng truyện (nếu có truyen_id)
+        truyen = None
+        if truyen_id:
+            truyen = get_object_or_404(Truyen, id=truyen_id)
+
+        # 2. Xử lý trường hợp Yêu cầu xóa (delete_request)
+        if loai == 'delete_request':
+            admins = User.objects.filter(is_superuser=True)
+            if not admins.exists():
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': 'Không tìm thấy quản trị viên hệ thống.'
+                }, status=404)
+            
+            for admin in admins:
+                Notification.objects.create(
+                    user=admin,
+                    user_from=request.user,
+                    truyen=truyen,
+                    loai=loai,
+                    noi_dung=message or f"Yêu cầu xóa truyện: {truyen.ten if truyen else 'Không xác định'}"
+                )
+            return JsonResponse({'status': 'success', 'message': 'Yêu cầu xóa đã được gửi tới Admin.'})
+
+        # 3. Xử lý trường hợp Chuyển quyền (transfer) hoặc Share quyền (share)
+        receiver = None
         if receiver_id:
-            receiver = User.objects.get(id=receiver_id)
+            receiver = User.objects.filter(id=receiver_id).first()
         elif receiver_username:
-            receiver = User.objects.get(username=receiver_username)
-        else:
-            return JsonResponse({'status': 'error', 'message': 'Người nhận không được cung cấp'}, status=400)
-    except User.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Người nhận không tồn tại'}, status=404)
+            receiver = User.objects.filter(username=receiver_username).first()
 
-    truyen = None
-    if truyen_id:
-        truyen = get_object_or_404(Truyen, id=truyen_id)
+        if not receiver:
+            return JsonResponse({
+                'status': 'error', 
+                'message': 'Không tìm thấy người nhận yêu cầu.'
+            }, status=400)
 
-    # nếu là delete_request, gửi tới tất cả superusers
-    if loai == 'delete_request':
-        admins = User.objects.filter(is_superuser=True)
-        for admin in admins:
-            Notification.objects.create(user=admin, noi_dung=message or f"Yêu cầu xóa truyện: {truyen.ten if truyen else ''}", loai=loai, truyen=truyen, user_from=request.user)
-        return JsonResponse({'status': 'success'})
+        # Tạo thông báo cho người nhận cụ thể
+        Notification.objects.create(
+            user=receiver,
+            user_from=request.user,
+            truyen=truyen,
+            loai=loai,
+            noi_dung=message
+        )
 
-    Notification.objects.create(user=receiver, noi_dung=message or '', loai=loai, truyen=truyen, user_from=request.user)
-    return JsonResponse({'status': 'success'})
+        return JsonResponse({
+            'status': 'success', 
+            'message': 'Gửi yêu cầu thành công!'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'status': 'error', 
+            'message': 'Định dạng dữ liệu JSON không hợp lệ.'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error', 
+            'message': f"Lỗi hệ thống: {str(e)}"
+        }, status=500)
 
 
 @login_required
@@ -1045,90 +1162,24 @@ def notifications_view(request):
 
 @login_required
 def bookmarks_view(request):
-    """Trang đánh dấu với 3 tab: Follow, Bookmark, Thông báo"""
-    # Tab 1: Truyện đang theo dõi
+    # Chỉ giữ lại 2 cái thực sự cần cho trang này
     follows = Follow.objects.filter(user=request.user).select_related('truyen')
     truyen_follows = [f.truyen for f in follows]
     
-    # Tab 2: Chương đã bookmark
-    bookmarks = Bookmark.objects.filter(user=request.user).select_related('chuong', 'chuong__volume', 'chuong__volume__truyen')
-    
-    # Tab 3: Thông báo
-    notifications = Notification.objects.filter(user=request.user).select_related('user_from', 'truyen')
+    ds_bookmarks = Bookmark.objects.filter(
+        user=request.user
+    ).select_related('chuong__volume__truyen')
     
     context = {
         'truyen_follows': truyen_follows,
-        'bookmarks': bookmarks,
-        'notifications': notifications,
+        'ds_bookmarks': ds_bookmarks,
     }
-    
+    # notification đã bị loại bỏ ở đây
     return render(request, 'doctruyen/bookmarks.html', context)
 
 
-# =========================
-# 13. EDIT/DELETE/PIN COMMENT
-# =========================
-
-@login_required
-def edit_comment_ajax(request, comment_id):
-    """AJAX: Sửa bình luận"""
-    comment = get_object_or_404(Comment, id=comment_id)
-    
-    if request.user != comment.user and not request.user.is_staff:
-        return JsonResponse({'status': 'error', 'message': 'Không có quyền'}, status=403)
-    
-    if request.method == 'POST':
-        import json
-        try:
-            data = json.loads(request.body)
-            noi_dung = data.get('noi_dung', '').strip()
-            
-            if not noi_dung:
-                return JsonResponse({'status': 'error', 'message': 'Nội dung không được rỗng'}, status=400)
-            
-            comment.noi_dung = noi_dung
-            comment.is_edited = True
-            comment.save()
-            
-            return JsonResponse({
-                'status': 'success',
-                'noi_dung': comment.noi_dung,
-                'ngay_chinh_sua': comment.ngay_chinh_sua.strftime('%Y-%m-%d %H:%M')
-            })
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-    
-    return JsonResponse({'status': 'error', 'message': 'Phương thức không hỗ trợ'}, status=405)
 
 
-@login_required
-def delete_comment_ajax(request, comment_id):
-    """AJAX: Xóa bình luận"""
-    comment = get_object_or_404(Comment, id=comment_id)
-    
-    if request.user != comment.user and not request.user.is_staff:
-        return JsonResponse({'status': 'error', 'message': 'Không có quyền'}, status=403)
-    
-    comment.delete()
-    return JsonResponse({'status': 'success', 'message': 'Bình luận đã được xóa'})
-
-
-@login_required
-def pin_comment_ajax(request, comment_id):
-    """AJAX: Ghim/bỏ ghim bình luận (dành cho tác giả)"""
-    comment = get_object_or_404(Comment, id=comment_id)
-    
-    # Chỉ tác giả truyện hoặc staff mới được ghim
-    if request.user != comment.truyen.author and not request.user.is_staff:
-        return JsonResponse({'status': 'error', 'message': 'Chỉ tác giả mới được ghim'}, status=403)
-    
-    comment.is_pinned = not comment.is_pinned
-    comment.save()
-    
-    return JsonResponse({
-        'status': 'success',
-        'is_pinned': comment.is_pinned
-    })
 
 
 # =========================

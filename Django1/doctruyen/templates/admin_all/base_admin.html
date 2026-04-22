@@ -1,3 +1,4 @@
+{% load thoi_gian %}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -13,19 +14,30 @@
             --accent: #e74c3c; --text-main: #1e293b; --text-muted: #64748b;
             --border-color: #e2e8f0; --sidebar-width: 280px;
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            --success: #dcfce7; --success-text: #166534; --success-border: #bbf7d0;
+            --error: #fee2e2; --error-text: #991b1b; --error-border: #fecaca;
+            --warning: #fef9c3; --warning-text: #854d0e; --warning-border: #fef08a;
         }
         body { margin: 0; font-family: 'Inter', sans-serif; background-color: var(--bg-body); display: flex; }
         .sidebar { width: var(--sidebar-width); background: var(--bg-card); height: 100vh; border-right: 1px solid var(--border-color); position: fixed; z-index: 1000; }
         .sidebar-logo { padding: 30px; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 12px; }
         .logo-circle { background: var(--primary); color: white; width: 35px; height: 35px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
         .nav-menu { padding: 0 15px; }
-        /* Sửa Nav-item để đảm bảo click toàn diện */
         .nav-item { display: flex; align-items: center; padding: 12px 20px; color: var(--text-muted); text-decoration: none; border-radius: 10px; margin-bottom: 5px; font-weight: 500; transition: 0.2s; cursor: pointer; }
         .nav-item i { width: 25px; }
         .nav-item:hover, .nav-item.active { background: #f1f5f9; color: var(--accent); }
         .main-wrapper { margin-left: var(--sidebar-width); flex: 1; min-height: 100vh; }
         .top-header { height: 70px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 40px; position: sticky; top: 0; z-index: 900; }
         .content-body { padding: 30px; }
+        
+        /* Style cho Messages */
+        .messages-container { margin-bottom: 25px; }
+        .alert { padding: 15px 20px; border-radius: 10px; margin-bottom: 10px; font-size: 14px; display: flex; align-items: center; gap: 12px; border: 1px solid transparent; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .alert-success { background: var(--success); color: var(--success-text); border-color: var(--success-border); }
+        .alert-error { background: var(--error); color: var(--error-text); border-color: var(--error-border); }
+        .alert-warning { background: var(--warning); color: var(--warning-text); border-color: var(--warning-border); }
+
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow); }
         .stat-card h4 { margin: 0; color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
@@ -47,16 +59,22 @@
             <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
                 <i class="fas fa-th-large"></i> <span>Bảng điều khiển</span>
             </a>
-            
+            <a href="{% url 'admin_quan_ly_truyen' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_quan_ly_truyen' %}active{% endif %}">
+                <i class="fas fa-book"></i> <span>Quản lý truyện</span>
+
+                <a href="{% url 'admin_the_loai' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_the_loai' %}active{% endif %}">
+        <i class="fas fa-tags"></i> <span>Quản lý thể loại</span>
+    </a>
+            </a>
             <a href="{% url 'admin_bao_cao' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_bao_cao' %}active{% endif %}">
                 <i class="fas fa-exclamation-triangle"></i> <span>Báo cáo vi phạm</span>
             </a>
-
             <a href="{% url 'admin_yeu_cau_xoa' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_yeu_cau_xoa' %}active{% endif %}">
                 <i class="fas fa-trash-alt"></i> <span>Yêu cầu xóa</span>
             </a>
-
-            <a href="#" class="nav-item"><i class="fas fa-users"></i> <span>Quản lý thành viên</span></a>
+            <a href="{% url 'quan_ly_thanh_vien' %}" class="nav-item {% if request.resolver_match.url_name == 'quan_ly_thanh_vien' %}active{% endif %}">
+                <i class="fas fa-users"></i> <span>Quản lý thành viên</span>
+            </a>
         </nav>
     </aside>
 
@@ -73,6 +91,19 @@
         </header>
 
         <main class="content-body">
+            {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>
+                    {% elif message.tags == 'error' %}<i class="fas fa-times-circle"></i>
+                    {% else %}<i class="fas fa-info-circle"></i>{% endif %}
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
             {% block content %}
             <div class="stats-grid">
                 <div class="stat-card">
@@ -114,7 +145,7 @@
                                 <div style="color: var(--text-muted); font-size: 12px;">
                                     {{ action.truyen.ten|default:"Hệ thống" }} bởi {{ action.user_from.username }}
                                 </div>
-                                <div class="action-time">{{ action.ngay_tao|timesince }} trước</div>
+                                <div class="action-time">{{ action.ngay_tao|time_vi }} trước</div>
                             </div>
                         </div>
                         {% empty %}
@@ -133,6 +164,16 @@
 
             <script>
                 document.addEventListener('DOMContentLoaded', function() {
+                    // Tự động ẩn thông báo sau 5 giây
+                    setTimeout(function() {
+                        const msgContainer = document.querySelector('.messages-container');
+                        if (msgContainer) {
+                            msgContainer.style.transition = 'opacity 0.5s ease';
+                            msgContainer.style.opacity = '0';
+                            setTimeout(() => msgContainer.remove(), 500);
+                        }
+                    }, 5000);
+
                     const canvas = document.getElementById('readershipChart');
                     const dataContainer = document.getElementById('chart-data');
                     if (!canvas || !dataContainer) return;

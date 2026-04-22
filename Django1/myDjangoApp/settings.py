@@ -63,6 +63,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'doctruyen.templatetags.context_processors.notification_count',
             ],
         },
     },
@@ -104,6 +105,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
+
+AUTH_USER_MODEL = 'doctruyen.User'
 
 LANGUAGE_CODE = 'vi'
 
