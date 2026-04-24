@@ -369,15 +369,46 @@ def login_view(request):
     # Nếu truy cập bằng GET (không qua modal)
     return redirect("truyen-list")
 
+from django.http import JsonResponse
+from django.contrib.auth import login
+
 def register_view(request):
     if request.method == "POST":
         u_email = request.POST.get("email")
         u_name = request.POST.get("username")
         u_pass = request.POST.get("password")
-        if not User.objects.filter(email=u_email).exists():
-            User.objects.create_user(email=u_email, username=u_name, password=u_pass)
-    return redirect("truyen-list")
+        
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
+        # 1. Kiểm tra xem email đã tồn tại chưa
+        if User.objects.filter(email=u_email).exists():
+            if is_ajax:
+                return JsonResponse({"success": False, "message": "Email này đã được đăng ký!"})
+            return redirect("truyen-list")
+
+        # 2. Kiểm tra xem username đã tồn tại chưa
+        if User.objects.filter(username=u_name).exists():
+            if is_ajax:
+                return JsonResponse({"success": False, "message": "Tên đăng nhập đã tồn tại!"})
+            return redirect("truyen-list")
+
+        try:
+            # 3. Tạo user mới
+            user = User.objects.create_user(email=u_email, username=u_name, password=u_pass)
+            
+            # 4. Đăng nhập luôn cho user sau khi tạo tài khoản thành công
+            login(request, user)
+
+            if is_ajax:
+                return JsonResponse({"success": True})
+            return redirect("truyen-list")
+            
+        except Exception as e:
+            if is_ajax:
+                return JsonResponse({"success": False, "message": str(e)})
+            return redirect("truyen-list")
+
+    return redirect("truyen-list")
 def logout_view(request):
     logout(request)
     return redirect("truyen-list")
@@ -878,36 +909,89 @@ def pin_comment_ajax(request, comment_id):
 
 @login_required
 def add_chuong_comment_ajax(request, chuong_id):
-    if request.method == 'POST' and request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        noi_dung = request.POST.get('noi_dung')
+    # Chỉ cần check POST là đủ, header có thể thiếu tùy trình duyệt
+    if request.method == 'POST':
+        noi_dung = request.POST.get('noi_dung', '').strip()
+        parent_id = request.POST.get('parent_id')
+        
         if not noi_dung:
             return JsonResponse({'status': 'error', 'message': 'Nội dung trống'}, status=400)
         
         try:
-            # 1. Lấy đối tượng Chương
-            chuong_obj = Chuong.objects.get(id=chuong_id)
-            
-            # 2. Truy xuất Truyện từ Chương (Chuong -> Volume -> Truyen)
+            chuong_obj = get_object_or_404(Chuong, id=chuong_id)
             truyen_obj = chuong_obj.volume.truyen
             
-            # 3. Tạo bình luận với đầy đủ truyen và chuong
-            comment = Comment.objects.create(
-                user=request.user,
-                truyen=truyen_obj, # Phải có cái này mới hết lỗi 500
-                chuong=chuong_obj,
-                noi_dung=noi_dung
-            )
-            return JsonResponse({
-                'status': 'success',
-                'username': request.user.username,
-                'noi_dung': comment.noi_dung
-            })
+            if parent_id and parent_id.strip():
+                # Lưu vào bảng Reply
+                parent_comment = get_object_or_404(Comment, id=parent_id)
+                CommentReply.objects.create(
+                    comment=parent_comment,
+                    user=request.user,
+                    noi_dung=noi_dung
+                )
+                return JsonResponse({'status': 'success', 'message': 'Đã phản hồi'})
+            else:
+                # Lưu vào bảng Comment gốc
+                Comment.objects.create(
+                    user=request.user,
+                    truyen=truyen_obj,
+                    chuong=chuong_obj,
+                    noi_dung=noi_dung
+                )
+                return JsonResponse({'status': 'success', 'message': 'Đã đăng bình luận'})
+                
         except Chuong.DoesNotExist:
             return JsonResponse({'status': 'error', 'message': 'Chương không tồn tại'}, status=404)
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
-    return JsonResponse({'status': 'error', 'message': 'Yêu cầu không hợp lệ'}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Yêu cầu không hợp lệ'}, status=405)
+
+def get_chuong_comments_ajax(request, chuong_id):
+    try:
+        # Lấy chương và truyện liên quan
+        chuong = get_object_or_404(Chuong, id=chuong_id)
+        # Lấy toàn bộ bình luận của chương này
+        comments = Comment.objects.filter(chuong=chuong).select_related(
+            'user', 'user__profile'
+        ).prefetch_related(
+            'likes', 'replies', 'replies__user', 'replies__user__profile'
+        ).order_by('-is_pinned', '-ngay_tao')
+        
+        comments_data = []
+        for comment in comments:
+            avatar_url = '/static/img/avatar.jpg'
+            if hasattr(comment.user, 'profile') and comment.user.profile.avatar:
+                avatar_url = comment.user.profile.avatar.url
+
+            # Render danh sách phản hồi (Replies)
+            replies_list = []
+            for r in comment.replies.all():
+                r_avatar = r.user.profile.avatar.url if hasattr(r.user, 'profile') and r.user.profile.avatar else '/static/img/avatar.jpg'
+                replies_list.append({
+                    'id': r.id,
+                    'username': r.user.username,
+                    'avatar': r_avatar,
+                    'noi_dung': r.noi_dung,
+                    'ngay_tao': r.ngay_tao.strftime('%H:%M %d-%m-%Y'),
+                    'can_delete': (request.user == r.user or request.user.is_staff)
+                })
+
+            comments_data.append({
+                'id': comment.id,
+                'username': comment.user.username,
+                'avatar': avatar_url,
+                'noi_dung': comment.noi_dung,
+                'ngay_tao': comment.ngay_tao.strftime('%H:%M %d-%m-%Y'),
+                'total_likes': comment.likes.count(),
+                'user_liked': comment.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
+                'is_pinned': comment.is_pinned,
+                'can_delete': (request.user == comment.user or request.user.is_staff),
+                'replies': replies_list
+            })
+        return JsonResponse({'comments': comments_data})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 # =========================
 # 10. BOOKMARK CHƯƠNG (AJAX)

@@ -50,7 +50,8 @@ urlpatterns = [
     path('comment/<int:comment_id>/edit/', views.edit_comment_ajax, name='edit-comment'),
     path('comment/<int:comment_id>/delete/', views.delete_comment_ajax, name='delete-comment'), # Đảm bảo views.py có hàm này
     path('comment/<int:comment_id>/pin/', views.pin_comment_ajax, name='pin-comment'),
-    path('chuong/<int:chuong_id>/comment/', views.add_chuong_comment_ajax, name='add-chuong-comment'),
+    path('chuong/<int:chuong_id>/comment/', views.add_chuong_comment_ajax, name='add-chuong-comment'),# urls.py
+path('chuong/<int:chuong_id>/get-comments/', views.get_chuong_comments_ajax, name='get-chuong-comments-ajax'),
 
     # --- BOOKMARK ---
     path('chuong/<int:chuong_id>/bookmark/', views.toggle_bookmark_ajax, name='toggle-bookmark-ajax'),

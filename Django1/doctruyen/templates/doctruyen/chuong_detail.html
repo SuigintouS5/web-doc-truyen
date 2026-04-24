@@ -8,56 +8,35 @@
 <link rel="stylesheet" href="{% static 'css/chuong_detail.css' %}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <style>
-    /* CSS bổ sung để đạt UI như ảnh 2 mà không cần sửa file .css gốc */
-    .comment-input-area {
-        position: relative;
-        margin-bottom: 30px;
-    }
+    /* Chỉ thêm CSS bổ sung cho phần Comment để đạt UI chuyên gia */
+    .comment-input-area { position: relative; margin-bottom: 30px; }
     .comment-input-area textarea {
-        width: 100%;
-        min-height: 100px;
-        padding: 15px;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        resize: vertical;
-        font-size: 14px;
-        background: #fff;
+        width: 100%; min-height: 100px; padding: 15px; border: 1px solid #e0e0e0;
+        border-radius: 8px; resize: vertical; font-size: 14px; background: #fff;
     }
-    .action-bar {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 10px;
-    }
+    .action-bar { display: flex; justify-content: flex-end; margin-top: 10px; }
     .btn-send-comment {
-        background-color: #2ecc71 !important; /* Màu xanh ảnh 2 */
-        color: white !important;
-        border: none;
-        padding: 8px 25px;
-        border-radius: 6px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: 0.3s;
+        background-color: #2ecc71 !important; color: white !important; border: none;
+        padding: 8px 25px; border-radius: 6px; font-weight: 500; cursor: pointer; transition: 0.3s;
     }
-    .btn-send-comment:hover {
-        background-color: #27ae60 !important;
-    }
-    .no-comment {
-        text-align: center;
-        color: #888;
-        margin-top: 20px;
-    }
-    .comment-item {
-        padding: 15px 0;
-        border-bottom: 1px solid #f0f0f0;
-    }
-    .user-name { font-weight: bold; color: #333; margin-right: 10px; }
-    .comment-date { font-size: 12px; color: #999; }
-    .comment-body { margin-top: 5px; color: #444; line-height: 1.5; }
+    .btn-send-comment:hover { background-color: #27ae60 !important; }
+    
+    /* Giao diện các nút tương tác Like/Sửa/Xóa */
+    .comment-item { padding: 15px 0; border-bottom: 1px solid #f0f0f0; }
+    .comment-header { display: flex; align-items: center; gap: 10px; }
+    .comment-actions { margin-top: 8px; display: flex; gap: 20px; font-size: 13px; color: #777; }
+    .action-btn { cursor: pointer; transition: 0.2s; }
+    .action-btn:hover { color: #2ecc71; }
+    .action-btn.delete:hover { color: #e74c3c; }
+    .liked { color: #2ecc71; font-weight: bold; }
+    .reply-area { margin-left: 50px; margin-top: 10px; border-left: 2px solid #eee; padding-left: 15px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+<input type="hidden" id="truyen-id" value="{{ truyen.id }}">
+<input type="hidden" id="chuong-id" value="{{ chuong.id }}">
 
 <div class="toc-sidebar" id="toc-sidebar">
     <div class="sidebar-header">
@@ -160,15 +139,13 @@
         </div>
 
         <section class="comment-section-box">
-            <h3 class="box-title" style="border-left: 5px solid #2ecc71; padding-left: 15px; font-weight: bold; font-size: 22px;">Bình luận</h3>
+            <h3 class="box-title" style="border-left: 5px solid #2ecc71; padding-left: 15px; font-weight: bold; font-size: 22px; margin-bottom: 20px;">Bình luận</h3>
             
             {% if user.is_authenticated %}
             <div class="comment-input-area">
-                <textarea id="comment-content" placeholder="Nhập bình luận của bạn..."></textarea>
+                <textarea id="comment-content-main" placeholder="Nhập bình luận của bạn..."></textarea>
                 <div class="action-bar">
-                    <button id="submit-comment" class="btn-send-comment" data-url="{% url 'add-chuong-comment' chuong.id %}">
-    Gửi
-</button>
+                    <button id="submit-comment-ajax" class="btn-send-comment">Gửi</button>
                 </div>
             </div>
             {% else %}
@@ -177,18 +154,8 @@
             </div>
             {% endif %}
             
-            <div id="comments-container" class="comments-list">
-                {% for comment in chuong.comments.all %}
-                <div class="comment-item">
-                    <div class="comment-user-info">
-                        <span class="user-name">{{ comment.user.username }}</span>
-                        <span class="comment-date">{{ comment.ngay_tao|time_vi }}</span>
-                    </div>
-                    <p class="comment-body">{{ comment.noi_dung }}</p>
-                </div>
-                {% empty %}
-                <p class="no-comment">Chưa có bình luận nào</p>
-                {% endfor %}
+            <div id="comments-list-container">
+                <div style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Đang tải bình luận...</div>
             </div>
         </section>
     </article>
@@ -224,6 +191,17 @@
                     <option value="'Palatino Linotype', serif">Palatino</option>
                 </select>
             </div>
+        </div>
+    </div>
+</div>
+
+<div id="edit-comment-modal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+    <div style="background:#fff; width:90%; max-width:500px; margin:15% auto; padding:20px; border-radius:8px;">
+        <h4 style="margin-bottom:10px; font-weight:bold;">Chỉnh sửa bình luận</h4>
+        <textarea id="modal-edit-content" style="width:100%; height:100px; padding:10px; border:1px solid #ddd; border-radius:4px;"></textarea>
+        <div style="text-align:right; margin-top:10px;">
+            <button onclick="closeEditModal()" style="padding:5px 15px; background:#ccc; border:none; border-radius:4px; cursor:pointer;">Hủy</button>
+            <button id="save-edit-comment" style="padding:5px 15px; background:#2ecc71; color:white; border:none; border-radius:4px; cursor:pointer;">Lưu</button>
         </div>
     </div>
 </div>
