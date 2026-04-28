@@ -2,6 +2,8 @@ import json
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from datetime import date
+from django.db.models import F
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
 User = get_user_model() 
@@ -14,7 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import (
     User,Truyen, Genre, Comment, Chuong, LichSuDoc, Volume,
-    Follow, Rating, CommentLike, CommentReply, Notification, Bookmark,Profile ,SocialLink
+    Follow, Rating, CommentLike, CommentReply, Notification, Bookmark,Profile ,SocialLink ,ViewStatistic
 )
 
 # =========================
@@ -22,8 +24,29 @@ from .models import (
 # =========================
 
 def truyen_list(request):
-    ds = Truyen.objects.all().order_by('-ngay_dang')
-    return render(request, 'doctruyen/truyen_list.html', {'ds': ds})
+    # 1. Danh sách truyện mới cập nhật (Dựa trên trường updated_at ta mới thêm)
+    ds_moi_cap_nhat = Truyen.objects.all().order_by('-updated_at')[:12]
+
+    ds_truyen_dich = Truyen.objects.filter(story_type='translated').order_by('-updated_at')[:8]
+    ds_truyen_ai = Truyen.objects.filter(story_type='ai').order_by('-updated_at')[:8]
+    ds_truyen_sang_tac = Truyen.objects.filter(story_type='original').order_by('-updated_at')[:8]
+    
+    # 2. Dữ liệu cho Slider 4-4 (Top Lượt Xem)
+    # Lấy top theo tuần, tháng, và tổng (mỗi cái 8-12 truyện tùy giao diện)
+    top_tuan = Truyen.objects.all().order_by('-view_tuan')[:8]
+    top_thang = Truyen.objects.all().order_by('-view_thang')[:8]
+    top_all = Truyen.objects.all().order_by('-view_tong')[:8]
+
+    context = {
+        'ds': ds_moi_cap_nhat,
+        'top_tuan': top_tuan,
+        'top_thang': top_thang,
+        'top_all': top_all,
+        'ds_truyen_dich': ds_truyen_dich,
+        'ds_truyen_ai': ds_truyen_ai,
+        'ds_truyen_sang_tac': ds_truyen_sang_tac,
+    }
+    return render(request, 'doctruyen/truyen_list.html', context)
 
 def truyen_detail(request, slug):
     truyen = get_object_or_404(Truyen, slug=slug)
@@ -49,9 +72,12 @@ def truyen_detail(request, slug):
     })
 
 def genre_detail(request, slug):
-    genre = get_object_or_404(Genre, slug=slug)
-    truyens = genre.truyens.all()
-
+    if slug == 'all':
+        genre = None # Hoặc tạo một object giả để tránh lỗi template
+        truyens = Truyen.objects.all()
+    else:
+        genre = get_object_or_404(Genre, slug=slug)
+        truyens = genre.truyens.all()
     # Lấy dữ liệu lọc
     selected_types = request.GET.getlist('type')
     selected_status = request.GET.getlist('status')
@@ -78,7 +104,9 @@ def genre_detail(request, slug):
 
     return render(request, 'doctruyen/genre_filter.html', {
         'ds': truyens, 
-        'current_genre': genre
+        'current_genre': genre,
+        'selected_types': selected_types, # Truyền lại để tick checkbox
+        'selected_status': selected_status,
     })
 # =========================
 # 2. XỬ LÝ CHƯƠNG (READER UI)
@@ -87,6 +115,18 @@ def genre_detail(request, slug):
 def chuong_detail(request, truyen_slug, chuong_slug):
     chuong = get_object_or_404(Chuong, volume__truyen__slug=truyen_slug, slug=chuong_slug)
     truyen = chuong.volume.truyen
+
+    v_stat, created = ViewStatistic.objects.get_or_create(
+        truyen=truyen, 
+        date=date.today()
+    )
+    v_stat.count = F('count') + 1
+    v_stat.save()
+
+    # 2. Cộng dồn vào view tổng của truyện
+    truyen.view_tong = F('view_tong') + 1
+    truyen.save(update_fields=['view_tong'])
+    # ----------------------------
     
     # --- PHẦN THÊM MỚI: Kiểm tra bookmark ngay tại đây ---
     is_bookmarked = False

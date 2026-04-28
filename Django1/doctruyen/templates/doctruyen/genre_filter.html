@@ -1,6 +1,8 @@
 {% extends 'base.html' %} {% load static %}
 
-{% block title %}Thể loại: {{ current_genre.name }}{% endblock %}
+{% block title %}
+    {% if current_genre %}Thể loại: {{ current_genre.ten }}{% else %}Tất cả truyện{% endif %}
+{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/genre_filter.css' %}">
@@ -12,7 +14,7 @@
         <a href="{% url 'truyen-list' %}">🏠 Danh sách</a> 
     </div>
 
-    <form method="GET" action="{% url 'genre-detail' current_genre.slug %}" id="filter-form">
+    <form method="GET" action="{{ request.path }}" id="filter-form">
         <div class="filter-layout">
             <main class="story-grid-container">
                 <div class="sort-bar">
@@ -31,7 +33,7 @@
                             <div class="story-cover">
                                 <img src="{{ truyen.get_anh_url }}" alt="{{ truyen.ten }}">
                                 <div class="story-meta-badge">
-                                    <span>Chương {{ truyen.chuong_moi_nhat|default:"0" }}</span>
+                                    <span>{{ truyen.thong_tin_cap_nhat.ten_volume }} - Chương {{ truyen.thong_tin_cap_nhat.so_chuong }}</span>
                                 </div>
                             </div>
                         </a>
@@ -51,9 +53,9 @@
                 <div class="filter-box">
                     <h4 class="filter-title">Phân loại</h4>
                     <div class="filter-group">
-                        <label><input type="checkbox" name="type" value="translated" {% if 'translated' in request.GET.getlist %}checked{% endif %}> Truyện dịch</label>
-                        <label><input type="checkbox" name="type" value="original" {% if 'original' in request.GET.getlist %}checked{% endif %}> Truyện sáng tác</label>
-                        <label><input type="checkbox" name="type" value="ai" {% if 'ai' in request.GET.getlist %}checked{% endif %}> Truyện AI</label>
+                        <label><input type="checkbox" name="type" value="translated" {% if 'translated' in selected_types %}checked{% endif %}> Truyện dịch</label>
+                        <label><input type="checkbox" name="type" value="original" {% if 'original' in selected_types %}checked{% endif %}> Truyện sáng tác</label>
+                        <label><input type="checkbox" name="type" value="ai" {% if 'ai' in selected_types %}checked{% endif %}> Truyện AI</label>
                     </div>
                     <button type="submit" class="btn-apply">Áp dụng</button>
                 </div>
@@ -61,9 +63,9 @@
                 <div class="filter-box">
                     <h4 class="filter-title">Tình trạng</h4>
                     <div class="filter-group">
-                        <label><input type="checkbox" name="status" value="ongoing" {% if 'ongoing' in request.GET.getlist %}checked{% endif %}> Đang cập nhật</label>
-                        <label><input type="checkbox" name="status" value="hoan_thanh" {% if 'hoan_thanh' in request.GET.getlist %}checked{% endif %}> Hoàn thành</label>
-                        <label><input type="checkbox" name="status" value="tam_ngung" {% if 'tam_ngung' in request.GET.getlist %}checked{% endif %}> Tạm ngưng</label>
+                        <label><input type="checkbox" name="status" value="ongoing" {% if 'ongoing' in selected_status %}checked{% endif %}> Đang cập nhật</label>
+                        <label><input type="checkbox" name="status" value="hoan_thanh" {% if 'hoan_thanh' in selected_status %}checked{% endif %}> Hoàn thành</label>
+                        <label><input type="checkbox" name="status" value="tam_ngung" {% if 'tam_ngung' in selected_status %}checked{% endif %}> Tạm ngưng</label>
                     </div>
                     <button type="submit" class="btn-apply">Áp dụng</button>
                 </div>

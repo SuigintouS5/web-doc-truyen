@@ -84,15 +84,17 @@ class Truyen(models.Model):
     mo_ta = models.TextField(blank=True)
     anh = models.ImageField(upload_to="truyen/", blank=True, null=True)
     slug = models.SlugField(max_length=200, unique=True, blank=True)
-    ngay_dang = models.DateField(auto_now_add=True)
+    ngay_dang = models.DateTimeField(auto_now_add=True)
     trang_thai = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ongoing')
     genres = models.ManyToManyField(Genre, blank=True, related_name="truyens")
+    updated_at = models.DateTimeField(auto_now=True, db_index=True) 
+    view_tuan = models.PositiveIntegerField(default=0, db_index=True) 
+    view_thang = models.PositiveIntegerField(default=0, db_index=True) 
+    view_tong = models.PositiveIntegerField(default=0, db_index=True)
+    latest_chap_number = models.FloatField(default=0) 
     
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="truyen_da_dang")
     collaborators = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="truyen_hop_tac")
-
-    class Meta:
-        ordering = ["-ngay_dang"]
 
     def __str__(self):
         return self.ten
@@ -122,9 +124,39 @@ class Truyen(models.Model):
     @property
     def trang_thai_display(self):
         return dict(self.STATUS_CHOICES).get(self.trang_thai, 'Không xác định')
+    @property
+    def thong_tin_cap_nhat(self):
+        # Tìm chương mới nhất dựa trên số Volume và số Chương
+        chuong_moi = Chuong.objects.filter(volume__truyen=self).order_by('-volume__so_volume', '-so_chuong').first()
+        
+        if not chuong_moi:
+            return {"so_chuong": "?", "ten_volume": "Chưa có Tập"}
+
+        # Khử số .0 đần đần: 1.0 -> 1, 1.5 -> 1.5
+        num = chuong_moi.so_chuong
+        so_chuong_dep = int(num) if num == int(num) else num
+        
+        # Truy ngược lấy tên Volume của chính chương đó
+        ten_vol = "N/A"
+        if chuong_moi.volume:
+            # Ưu tiên lấy tên Volume (Tử Lưu Ly), nếu không có thì lấy số (Vol 1)
+            ten_vol = chuong_moi.volume.ten if chuong_moi.volume.ten else f"Vol {chuong_moi.volume.so_volume}"
+            
+        return {
+            "so_chuong": so_chuong_dep,
+            "ten_volume": ten_vol
+        }
 
     def get_absolute_url(self):
         return reverse('truyen-detail', kwargs={'slug': self.slug})
+class ViewStatistic(models.Model):
+    truyen = models.ForeignKey(Truyen, on_delete=models.CASCADE, related_name="daily_views")
+    date = models.DateField(auto_now_add=True, db_index=True)
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ("truyen", "date")
+        ordering = ["-date"]
 
 # =================================================
 # 4. VOLUME & CHƯƠNG
@@ -144,7 +176,7 @@ class Volume(models.Model):
 
 class Chuong(models.Model):
     volume = models.ForeignKey(Volume, on_delete=models.CASCADE, related_name="chuongs", null=True)
-    so_chuong = models.PositiveIntegerField()
+    so_chuong = models.IntegerField()
     ten = models.CharField(max_length=200, blank=False , null=False)
     noi_dung = models.TextField()
     ngay_dang = models.DateTimeField(auto_now_add=True)
@@ -160,7 +192,12 @@ class Chuong(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(unidecode(f"chuong-{self.so_chuong}-{self.ten}"))
+            is_new = self._state.adding
         super().save(*args, **kwargs)
+        if is_new and self.volume:
+            # Tự động cập nhật số chương mới nhất và ngày cập nhật cho Truyen
+            self.volume.truyen.latest_chap_number = self.so_chuong
+            self.volume.truyen.save(update_fields=['latest_chap_number', 'updated_at'])
 
     def get_absolute_url(self):
         return reverse('chuong-detail', kwargs={'truyen_slug': self.volume.truyen.slug, 'chuong_slug': self.slug})
