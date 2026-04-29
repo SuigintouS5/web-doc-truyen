@@ -1,9 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     // --- KHỞI TẠO BIẾN ---
     const sortModal = document.getElementById('sortModal');
-    const sortableList = document.getElementById('sortableList');
+    const sortableList = document.getElementById('sortableList'); // list container
     const saveSortBtn = document.getElementById('saveSortBtn');
-    let sortableInstance = null;
     let currentSortType = ''; // 'volume' hoặc 'chapter'
 
     // --- HÀM TIỆN ÍCH ---
@@ -63,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     });
 
+    // --- RENDER DANH SÁCH SẮP XẾP (KIỂU CHỌN) ---
     function renderSortList(title, items) {
         const titleEl = document.getElementById('sortModalTitle');
         if (titleEl) titleEl.innerText = title;
@@ -75,25 +75,57 @@ document.addEventListener('DOMContentLoaded', function() {
             if (saveSortBtn) saveSortBtn.classList.remove('hidden');
             items.forEach(item => {
                 const li = document.createElement('li');
-                li.dataset.id = item.id; // Quan trọng để Backend nhận ID
-                li.innerHTML = `<i class="fas fa-bars sort-handle"></i> <span>${item.name}</span>`;
+                li.className = 'select-move-item'; // Class để CSS nhận diện chọn
+                li.dataset.id = item.id;
+                li.innerText = item.name;
                 sortableList.appendChild(li);
             });
         }
         openModal('sortModal');
+    }
 
-        if (sortableInstance) sortableInstance.destroy();
-        sortableInstance = new Sortable(sortableList, {
-            animation: 150,
-            ghostClass: 'sortable-ghost',
-            handle: '.sort-handle',
-            forceFallback: true
+    // --- LOGIC CHỌN MỤC ---
+    sortableList.addEventListener('click', function(e) {
+        const target = e.target.closest('.select-move-item');
+        if (!target) return;
+
+        sortableList.querySelectorAll('.select-move-item').forEach(el => el.classList.remove('is-active'));
+        target.classList.add('is-active');
+    });
+
+    // --- LOGIC ĐIỀU HƯỚNG DI CHUYỂN ---
+    const navPanel = document.querySelector('.sort-navigation-panel');
+    if (navPanel) {
+        navPanel.addEventListener('click', function(e) {
+            const btn = e.target.closest('.nav-btn');
+            if (!btn) return;
+
+            const activeItem = sortableList.querySelector('.select-move-item.is-active');
+            if (!activeItem) {
+                alert("Vui lòng nhấp chọn một mục trước khi di chuyển!");
+                return;
+            }
+
+            if (btn.classList.contains('move-top')) {
+                sortableList.prepend(activeItem);
+            } 
+            else if (btn.classList.contains('move-up')) {
+                const prev = activeItem.previousElementSibling;
+                if (prev) prev.before(activeItem);
+            } 
+            else if (btn.classList.contains('move-down')) {
+                const next = activeItem.nextElementSibling;
+                if (next) next.after(activeItem);
+            } 
+            else if (btn.classList.contains('move-bottom')) {
+                sortableList.append(activeItem);
+            }
+
+            activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
     }
 
-    // --- LƯU THỨ TỰ (FETCH API - chỉ sửa phần này) ---
-    // *** đoạn mã dưới đây đã được chỉnh sửa trực tiếp theo yêu cầu của bạn ***
-    // thêm hàm lấy cookie để dùng khi không có input csrf trên page
+    // --- LƯU THỨ TỰ (FETCH API) ---
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -111,11 +143,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (saveSortBtn) {
         saveSortBtn.onclick = function() {
-            const items = Array.from(sortableList.querySelectorAll('li'));
+            const items = Array.from(sortableList.querySelectorAll('li.select-move-item'));
             const newOrder = items.map(li => li.dataset.id);
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
 
-            // URL tuyệt đối khớp với urlpatterns trong urls.py
             const targetUrl = currentSortType === 'volume' 
                 ? '/truyen/reorder-volumes/' 
                 : '/truyen/reorder-chapters/';
@@ -123,7 +154,6 @@ document.addEventListener('DOMContentLoaded', function() {
             saveSortBtn.disabled = true;
             saveSortBtn.innerText = "Đang lưu...";
 
-            // FormData để Django nhận order[] dưới dạng list
             const formData = new FormData();
             newOrder.forEach(id => formData.append('order[]', id));
             formData.append('csrfmiddlewaretoken', csrfToken);
@@ -131,15 +161,10 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(targetUrl, {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
             .then(res => res.json().then(data => {
-                if (!res.ok) {
-                    // nếu server trả lỗi, dùng thông điệp từ JSON nếu có
-                    throw new Error(data.message || 'Lỗi server ' + res.status);
-                }
+                if (!res.ok) throw new Error(data.message || 'Lỗi server ' + res.status);
                 return data;
             }))
             .then(data => {
@@ -170,7 +195,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btn) btn.onclick = () => {
             const modal = btn.closest('.volume-modal') || btn.closest('#sortModal');
             if (modal) {
-                modal.id === 'sortModal' ? closeModal('sortModal') : modal.classList.add('hidden');
+                modal.classList.add('hidden');
             }
         };
     });

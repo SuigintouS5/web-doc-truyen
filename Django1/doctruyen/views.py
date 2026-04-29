@@ -190,7 +190,7 @@ def add_volume_ajax(request, truyen_id):
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
-@login_required
+
 @login_required
 def edit_volume_ajax(request, volume_id):
     vol = get_object_or_404(Volume, id=volume_id)
@@ -214,21 +214,31 @@ def edit_volume_ajax(request, volume_id):
 
 @login_required
 def reorder_volumes(request):
-    """Ajax: cập nhật thứ tự volume theo danh sách order[]."""
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Phương thức không hỗ trợ'}, status=405)
 
     order = request.POST.getlist('order[]')
     try:
+        total = len(order)
         with transaction.atomic():
+            # Bước 1: Gán số tạm cực lớn để giải phóng các số nhỏ (tránh trùng unique)
             for idx, vol_id in enumerate(order, start=1):
                 vol = get_object_or_404(Volume, id=vol_id)
-                if not (request.user == vol.truyen.author or
-                        request.user in vol.truyen.collaborators.all() or
+                # Kiểm tra quyền
+                if not (request.user == vol.truyen.author or 
+                        request.user in vol.truyen.collaborators.all() or 
                         request.user.is_staff):
                     return JsonResponse({'status': 'error', 'message': 'Không có quyền'}, status=403)
+                
+                vol.so_volume = idx + total + 1000  # Đảm bảo không trùng với bất kỳ số hiện tại nào
+                vol.save()
+
+            # Bước 2: Gán lại số thứ tự chuẩn 1, 2, 3...
+            for idx, vol_id in enumerate(order, start=1):
+                vol = Volume.objects.get(id=vol_id)
                 vol.so_volume = idx
                 vol.save()
+                
         return JsonResponse({'status': 'success'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
@@ -239,14 +249,27 @@ def delete_volume_ajax(request, volume_id):
         return JsonResponse({"status": "error", "message": "Phương thức không hỗ trợ"}, status=405)
     
     vol = get_object_or_404(Volume, id=volume_id)
-    # quyền: tác giả, editor hoặc staff
-    if not (request.user == vol.truyen.author or
-            request.user in vol.truyen.collaborators.all() or
-            request.user.is_staff):
+    truyen = vol.truyen # Lưu lại truyen để lọc các volume khác
+    current_so_volume = vol.so_volume
+
+    # Kiểm tra quyền
+    if not (truyen.author == request.user or request.user in truyen.collaborators.all() or request.user.is_staff):
         return JsonResponse({"status": "error", "message": "Không có quyền"}, status=403)
     
-    vol.delete()
-    return JsonResponse({"status": "success"})
+    try:
+        with transaction.atomic():
+            # Bước 1: Xóa volume mục tiêu
+            vol.delete()
+            
+            # Bước 2: Dồn các volume phía sau lên (Giảm so_volume đi 1)
+            # Những volume nào có số lớn hơn số vừa xóa sẽ bị trừ đi 1
+            truyen.volumes.filter(so_volume__gt=current_so_volume).update(
+                so_volume=models.F('so_volume') - 1
+            )
+            
+        return JsonResponse({"status": "success"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 @login_required
 def add_chapter_ajax(request, volume_id):
@@ -273,7 +296,7 @@ def add_chapter_ajax(request, volume_id):
             last_c = vol.chuongs.order_by('so_chuong').last()
             so_chuong = (last_c.so_chuong + 1) if last_c else 1
         
-        chuong = Chuong.objects.create(volume=vol, ten=ten, so_chuong=so_chuong, noi_dung=noi_dung, slug=slugify(ten))
+        chuong = Chuong.objects.create(volume=vol, ten=ten, so_chuong=so_chuong, noi_dung=noi_dung)
         
         # Create notifications for all followers of this story
         truyen = vol.truyen
@@ -309,7 +332,8 @@ def get_chapter_ajax(request, chapter_id):
 @login_required
 def edit_chapter_ajax(request, chapter_id):
     c = get_object_or_404(Chuong, id=chapter_id)
-    # quyền: tác giả, editor hoặc staff
+    
+    # 1. Kiểm tra quyền
     if not (request.user == c.volume.truyen.author or
             request.user in c.volume.truyen.collaborators.all() or
             request.user.is_staff):
@@ -319,14 +343,21 @@ def edit_chapter_ajax(request, chapter_id):
         return JsonResponse({"status": "error", "message": "Phương thức không hỗ trợ"}, status=405)
     
     try:
+        # 2. Cập nhật các trường dữ liệu
         c.ten = request.POST.get('ten', '').strip()
         c.so_chuong = request.POST.get('so_chuong')
         c.noi_dung = request.POST.get('noi_dung', '').strip()
-        c.slug = slugify(c.ten)
-        c.save()
+        
+        # 3. QUAN TRỌNG: Không gán c.slug = slugify(c.ten) trực tiếp ở đây.
+        # Hãy xóa slug cũ đi để hàm save() trong Model tự tạo lại slug mới chuẩn unidecode.
+        c.slug = "" 
+        
+        c.save() 
         return JsonResponse({"status": "success"})
+        
     except IntegrityError:
-        return JsonResponse({"status": "error", "message": "Chương này đã tồn tại trong tập"}, status=400)
+        # Lỗi này xảy ra khi so_chuong mới nhập vào bị trùng với một chương khác đã có trong Volume
+        return JsonResponse({"status": "error", "message": f"Số chương {c.so_chuong} đã tồn tại trong tập này"}, status=400)
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
@@ -364,17 +395,27 @@ def delete_chapter_ajax(request, chapter_id):
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Phương thức không hỗ trợ"}, status=405)
     
-    # Đồng bộ tham số chapter_id với urls.py
     c = get_object_or_404(Chuong, id=chapter_id)
-    
-    # Kiểm tra quyền: tác giả, editor hoặc staff
-    if not (c.volume.truyen.author == request.user or
-            request.user in c.volume.truyen.collaborators.all() or
-            request.user.is_staff):
+    vol = c.volume
+    current_so_chuong = c.so_chuong
+
+    # Kiểm tra quyền
+    if not (vol.truyen.author == request.user or request.user in vol.truyen.collaborators.all() or request.user.is_staff):
         return JsonResponse({"status": "error", "message": "Không có quyền"}, status=403)
     
-    c.delete()
-    return JsonResponse({"status": "success"})
+    try:
+        with transaction.atomic():
+            # Bước 1: Xóa chương
+            c.delete()
+            
+            # Bước 2: Dồn các chương phía sau trong cùng Volume lên
+            vol.chuongs.filter(so_chuong__gt=current_so_chuong).update(
+                so_chuong=models.F('so_chuong') - 1
+            )
+            
+        return JsonResponse({"status": "success"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 # =========================
 # 4. TÀI KHOẢN & HỆ THỐNG
@@ -754,39 +795,34 @@ def is_following_ajax(request, truyen_id):
 
 @login_required
 def add_rating_ajax(request, truyen_id):
-    """AJAX: Thêm hoặc cập nhật đánh giá"""
     if request.method == 'POST':
         import json
         try:
             data = json.loads(request.body)
             diem = int(data.get('diem'))
             
-            if diem < 1 or diem > 5:
+            if not (1 <= diem <= 5):
                 return JsonResponse({'status': 'error', 'message': 'Điểm phải từ 1-5'}, status=400)
             
             truyen = get_object_or_404(Truyen, id=truyen_id)
             
-            rating, created = Rating.objects.update_or_create(
+            # Cập nhật hoặc tạo đánh giá mới
+            Rating.objects.update_or_create(
                 user=request.user,
                 truyen=truyen,
                 defaults={'diem': diem}
             )
             
-            # Lấy điểm trung bình và số lượng đánh giá
-            diem_trung_binh = truyen.diem_trung_binh
-            so_luong = truyen.so_luong_danh_gia
-            
-            action = 'created' if created else 'updated'
+            # Trả về kết quả từ các property đã sửa ở trên
             return JsonResponse({
                 'status': 'success',
-                'action': action,
-                'diem_trung_binh': round(diem_trung_binh, 1),
-                'so_luong': so_luong
+                'diem_trung_binh': truyen.diem_trung_binh,
+                'so_luong': truyen.so_luong_danh_gia
             })
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-    
-    return JsonResponse({'status': 'error', 'message': 'Phương thức không hỗ trợ'}, status=405)
+            
+    return JsonResponse({'status': 'error', 'message': 'Phương thức không hợp lệ'}, status=405)
 
 
 @login_required

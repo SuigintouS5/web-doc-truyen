@@ -17,8 +17,8 @@
             <p class="story-author">Tác giả: {{ truyen.tac_gia }}</p>
             
             <div class="story-rating" id="ratingDisplay">
-              ⭐ <span id="ratingValue">{{ truyen.diem_trung_binh|floatformat:1 }}</span> 
-              (<span id="ratingCount">{{ truyen.so_luong_danh_gia }}</span> đánh giá)
+              ⭐ <span id="ratingValue">{{ truyen.diem_trung_binh|default:"0.0"|floatformat:1 }}</span> 
+              (<span id="ratingCount">{{ truyen.so_luong_danh_gia|default:"0" }}</span> đánh giá)
             </div>
             
             {% if user.is_authenticated %}
@@ -313,41 +313,72 @@ function pinComment(id) {
 }
 
 // --- RATING ---
+// --- RATING FINAL ---
 function updateStarDisplay(diem) {
-  const stars = document.querySelectorAll('#ratingStars .star');
-  stars.forEach((star, idx) => {
-    if (idx < diem) { star.classList.add('active'); } 
-    else { star.classList.remove('active'); }
-  });
+    const stars = document.querySelectorAll('#ratingStars .star');
+    stars.forEach((star, idx) => {
+        if (idx < diem) { 
+            star.classList.add('active'); 
+        } else { 
+            star.classList.remove('active'); 
+        }
+    });
 }
 
 function initRating() {
-  const ratingStars = document.getElementById('ratingStars');
-  if (!ratingStars || !isAuthenticated) return;
-  fetch(`/truyen/${truyen_id}/get-rating/`)
-    .then(r => r.json()).then(data => { if (data.diem > 0) updateStarDisplay(data.diem); });
-  ratingStars.querySelectorAll('.star').forEach(star => {
-    star.addEventListener('click', function() {
-      const diem = this.dataset.value;
-      fetch(`/truyen/${truyen_id}/rating/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-        body: JSON.stringify({ diem: diem })
-      })
-      .then(r => r.json()).then(data => {
-        if (data.status === 'success') {
-          document.getElementById('ratingValue').textContent = data.diem_trung_binh;
-          document.getElementById('ratingCount').textContent = data.so_luong;
-          updateStarDisplay(diem);
-        }
-      });
+    const ratingStars = document.getElementById('ratingStars');
+    if (!ratingStars || !isAuthenticated) return;
+
+    let userRatingAtLoad = 0; // Lưu điểm thực tế của user để trả lại khi mouseleave
+
+    // 1. Lấy điểm user đã vote từ trước (nếu có)
+    fetch(`/truyen/${truyen_id}/get-rating/`)
+        .then(r => r.json())
+        .then(data => {
+            userRatingAtLoad = parseInt(data.diem) || 0;
+            updateStarDisplay(userRatingAtLoad);
+        });
+
+    // 2. Xử lý Click để Vote
+    ratingStars.querySelectorAll('.star').forEach(star => {
+        star.addEventListener('click', function() {
+            const diem = this.dataset.value;
+            
+            fetch(`/truyen/${truyen_id}/rating/`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-CSRFToken': csrfToken 
+                },
+                body: JSON.stringify({ diem: diem })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Cập nhật số liệu trên giao diện ngay lập tức
+                    document.getElementById('ratingValue').textContent = data.diem_trung_binh;
+                    document.getElementById('ratingCount').textContent = data.so_luong;
+                    
+                    // Cập nhật lại điểm "gốc" để khi di chuột ra không bị nhảy về điểm cũ
+                    userRatingAtLoad = parseInt(diem);
+                    updateStarDisplay(userRatingAtLoad);
+                } else {
+                    alert("Lỗi: " + data.message);
+                }
+            })
+            .catch(err => console.error("Rating Error:", err));
+        });
+
+        // 3. Hiệu ứng Hover (Chỉ thay đổi hiển thị tạm thời)
+        star.addEventListener('mouseenter', function() {
+            updateStarDisplay(this.dataset.value);
+        });
     });
-    star.addEventListener('mouseenter', function() { updateStarDisplay(this.dataset.value); });
-  });
-  ratingStars.addEventListener('mouseleave', () => {
-      fetch(`/truyen/${truyen_id}/get-rating/`)
-        .then(r => r.json()).then(data => updateStarDisplay(data.diem || 0));
-  });
+
+    // 4. Khi di chuột ra ngoài: Trả về trạng thái điểm đã vote thực tế
+    ratingStars.addEventListener('mouseleave', () => {
+        updateStarDisplay(userRatingAtLoad);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function () {

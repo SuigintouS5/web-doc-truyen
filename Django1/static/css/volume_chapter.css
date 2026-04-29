@@ -203,3 +203,33 @@
 .hidden { display: none !important; }
 
 .text-muted { color: #9ca3af; font-size: 0.85rem; }
+
+/* --- Style cho giao diện Sắp xếp mới: Chọn & Di chuyển --- */
+
+/* 1. Style cơ bản cho các item trong list */
+#sortableList li,
+#sortableList li.select-move-item {
+    padding: 12px 18px;
+    margin-bottom: 8px; /* khoảng cách giữa các item */
+    background: #ffffff;
+    border: 1px solid #f3f4f6; /* màu viền nhạt */
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease; /* hiệu ứng chuyển màu mượt mà */
+    font-size: 14px;
+    list-style: none; /* bỏ dấu chấm đầu dòng */
+}
+
+/* 2. Style khi di chuột qua item (Hover) */
+#sortableList li.select-move-item:hover {
+    background: #f9fafb; /* nền xám rất nhạt khi di chuột qua */
+}
+
+/* 3. ĐÂY LÀ ĐOẠN QUAN TRỌNG NHẤT: Style khi click chọn (Class .is-active) */
+#sortableList li.select-move-item.is-active {
+    background: #f3e8ff !important; /* nền tím nhạt, giống các app hiện đại */
+    border-color: #a855f7 !important; /* viền tím đậm làm điểm nhấn */
+    color: #7e22ce; /* màu chữ tím đậm */
+    font-weight: 600; /* chữ đậm hơn một chút */
+    box-shadow: 0 2px 4px rgba(168, 85, 247, 0.1); /* hiệu ứng bóng đổ nhẹ */
+}

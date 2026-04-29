@@ -117,9 +117,15 @@ class Truyen(models.Model):
 
     @property
     def diem_trung_binh(self):
-        ratings = self.ratings.all()
-        if not ratings: return 0
-        return sum([r.diem for r in ratings]) / len(ratings)
+        # Sử dụng aggregate để tính toán trực tiếp từ DB cho chính xác và hiệu năng cao
+        from django.db.models import Avg
+        result = self.ratings.aggregate(Avg('diem'))['diem__avg']
+        return round(result, 1) if result else 0.0
+
+    @property
+    def so_luong_danh_gia(self):
+        # Đếm trực tiếp số lượng bản ghi trong bảng Rating liên kết với truyện này
+        return self.ratings.count()
 
     @property
     def trang_thai_display(self):
@@ -190,6 +196,7 @@ class Chuong(models.Model):
         return f"Chương {self.so_chuong}: {self.ten}"
 
     def save(self, *args, **kwargs):
+        is_new = self._state.adding
         if not self.slug:
             self.slug = slugify(unidecode(f"chuong-{self.so_chuong}-{self.ten}"))
             is_new = self._state.adding
