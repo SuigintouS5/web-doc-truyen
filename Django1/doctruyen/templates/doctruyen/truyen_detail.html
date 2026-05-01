@@ -89,6 +89,12 @@
             <div id="commentsList" class="comments-list">
               <p class="loading-text">Đang tải bình luận...</p>
             </div>
+            
+            <div id="paginationControls" class="pagination-controls" style="display: none; text-align: center; margin-top: 20px;">
+              <button id="prevPage" class="page-btn">Trang trước</button>
+              <span id="pageInfo" style="margin: 0 10px;"></span>
+              <button id="nextPage" class="page-btn">Trang sau</button>
+            </div>
           </div>
         </div>
       </div>
@@ -120,32 +126,39 @@
         <div class="sidebar-box">
           <h4 class="sidebar-title">📑 Mục lục</h4>
           <div class="volume-navigation">
-            {% for volume in volumes %}
-            <div class="volume-group">
-              <div class="volume-label">
+    {% for volume in volumes %}
+    <div class="volume-group">
+        <!-- Thêm class toggle-vol để bắt sự kiện click -->
+        <div class="volume-label toggle-vol" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+            <span>
                 Vol {{ volume.so_volume }}
                 {% with vol_name=volume.ten|cut:"Vol "|cut:"Vol"|cut:"vol "|cut:"vol" %}
                    {% if vol_name and vol_name|slugify != volume.so_volume|slugify %}
                      - {{ vol_name }}
                    {% endif %}
                 {% endwith %}
-              </div>
-              <ul class="chapter-list">
-                {% for c in volume.chuongs.all %}
-                <li>
-                  <a href="{% url 'chuong-detail' truyen.slug c.slug %}" title="Chương {{ c.so_chuong }}: {{ c.ten }}">
+            </span>
+            <!-- Icon mũi tên chỉ trạng thái -->
+            <span class="arrow-icon">▼</span>
+        </div>
+        
+        <!-- Danh sách chương sẽ được ẩn/hiện -->
+        <ul class="chapter-list chapter-collapse">
+            {% for c in volume.chuongs.all %}
+            <li>
+                <a href="{% url 'chuong-detail' truyen.slug c.slug %}" title="Chương {{ c.so_chuong }}: {{ c.ten }}">
                     Chương {{ c.so_chuong }}: {{ c.ten }}
-                  </a>
-                </li>
-                {% empty %}
-                <li class="empty-chapter">Chưa có chương</li>
-                {% endfor %}
-              </ul>
-            </div>
+                </a>
+            </li>
             {% empty %}
-            <div class="muted-text">Chưa có tập nào</div>
+            <li class="empty-chapter">Chưa có chương</li>
             {% endfor %}
-          </div>
+        </ul>
+    </div>
+    {% empty %}
+    <div class="muted-text">Chưa có tập nào</div>
+    {% endfor %}
+</div>
         </div>
       </aside>
 
@@ -214,69 +227,90 @@ function sendReport() {
 }
 
 // --- BÌNH LUẬN ---
-function loadComments() {
+// Hàm đệ quy để render bình luận và tất cả các reply con của nó
+function renderCommentTree(comment, level = 0) {
+    const isReply = level > 0;
+    const paddingClass = isReply ? 'reply-item' : 'comment-item';
+    
+    // Giới hạn độ thụt lề nếu cần, hoặc cứ để đệ quy tự nhiên
+    const repliesHtml = comment.replies && comment.replies.length > 0 
+        ? `<div class="replies-container">
+            ${comment.replies.map(r => renderCommentTree(r, level + 1)).join('')}
+           </div>` 
+        : '';
+
+    return `
+        <div class="${paddingClass} ${comment.is_pinned ? 'pinned' : ''}" id="comment-${comment.id}">
+            <div class="comment-header">
+                <div class="${isReply ? 'reply-avatar-container' : 'comment-avatar-container'}">
+                    <img src="${comment.avatar || '/static/img/avatar.jpg'}" class="${isReply ? 'reply-avatar' : 'comment-avatar'}">
+                </div>
+                <div class="comment-info">
+                    <div class="comment-author">
+                        <span class="username">${comment.username}</span>
+                        ${comment.is_pinned ? '<span class="badge-pin">📌 Đã ghim</span>' : ''}
+                        ${!isReply ? `<span class="comment-loc">• ${comment.volume_ten ? comment.volume_ten + ' - ' : ''}${comment.chuong_ten || 'Tổng quan'}</span>` : ''}
+                    </div>
+                    <div class="comment-date">${comment.ngay_tao}</div>
+                </div>
+            </div>
+            <div class="comment-body" style="${isReply ? 'padding-left: 46px;' : ''}">
+                ${comment.noi_dung}
+            </div>
+            <div class="comment-actions" style="${isReply ? 'padding-left: 46px;' : ''}">
+                <span class="act-btn ${comment.user_liked ? 'liked' : ''}" onclick="likeComment(${comment.id})">👍 ${comment.total_likes}</span>
+                <span class="act-btn" onclick="toggleReplyForm(${comment.id})">💬 Phản hồi</span>
+                ${comment.can_pin && !isReply ? `<span class="act-btn" onclick="pinComment(${comment.id})">${comment.is_pinned ? 'Bỏ ghim' : 'Ghim'}</span>` : ''}
+                ${comment.can_delete ? `<span class="act-btn del-btn" onclick="deleteComment(${comment.id})">Xóa</span>` : ''}
+            </div>
+            
+            <div id="reply-form-${comment.id}" class="reply-form-box" style="display: none; margin-left: ${isReply ? '46px' : '60px'};">
+                <textarea id="reply-input-${comment.id}" placeholder="Viết phản hồi cho ${comment.username}..."></textarea>
+                <button onclick="sendReply(${comment.id})" class="btn-send-reply">Gửi</button>
+            </div>
+            
+            ${repliesHtml}
+        </div>
+    `;
+}
+
+// --- BÌNH LUẬN ---
+let currentPage = 1;
+
+function loadComments(page = 1) {
     const commentsList = document.getElementById('commentsList');
-    fetch(`/truyen/${truyen_id}/get-comments/`)
+    const paginationControls = document.getElementById('paginationControls');
+    const pageInfo = document.getElementById('pageInfo');
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    
+    fetch(`/truyen/${truyen_id}/get-comments/?page=${page}`)
         .then(r => r.json())
         .then(data => {
             if (!data.comments || data.comments.length === 0) {
                 commentsList.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Chưa có bình luận nào</p>';
+                paginationControls.style.display = 'none';
                 return;
             }
-            commentsList.innerHTML = data.comments.map(comment => `
-                <div class="comment-item ${comment.is_pinned ? 'pinned' : ''}" id="comment-${comment.id}">
-                    <div class="comment-header">
-                        <div class="comment-avatar-container">
-                          <img src="${comment.avatar || '/static/img/avatar.jpg'}" class="comment-avatar">
-                        </div>
-                        <div class="comment-info">
-                            <div class="comment-author">
-                                <span class="username">${comment.username}</span>
-                                ${comment.is_pinned ? '<span class="badge-pin">📌 Đã ghim</span>' : ''}
-                                <span class="comment-loc">• ${comment.chuong_ten}</span>
-                            </div>
-                            <div class="comment-date">${comment.ngay_tao}</div>
-                        </div>
-                    </div>
-                    <div class="comment-body">${comment.noi_dung}</div>
-                    <div class="comment-actions">
-                        <span class="act-btn ${comment.user_liked ? 'liked' : ''}" onclick="likeComment(${comment.id})">👍 ${comment.total_likes}</span>
-                        <span class="act-btn" onclick="toggleReplyForm(${comment.id})">💬 Phản hồi</span>
-                        ${comment.can_pin ? `<span class="act-btn" onclick="pinComment(${comment.id})">${comment.is_pinned ? 'Bỏ ghim' : 'Ghim'}</span>` : ''}
-                        ${comment.can_delete ? `<span class="act-btn del-btn" onclick="deleteComment(${comment.id})">Xóa</span>` : ''}
-                    </div>
-                    <div class="replies-container">
-                        ${comment.replies.map(reply => `
-                            <div class="reply-item" id="comment-${reply.id}">
-                                <div class="reply-avatar-container">
-                                    <img src="${reply.avatar}" class="reply-avatar">
-                                </div>
-                                <div class="reply-content" style="width: 100%;">
-                                    <div class="reply-user">
-                                        <b>${reply.username}</b> 
-                                        <small>${reply.ngay_tao}</small>
-                                    </div>
-                                    <div class="reply-text">${reply.noi_dung}</div>
-                                    <div class="comment-actions" style="padding-left: 0; margin-top: 5px;">
-                                        ${reply.can_delete ? `<span class="act-btn del-btn" style="font-size: 13px;" onclick="deleteComment(${reply.id})">Xóa</span>` : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div id="reply-form-${comment.id}" class="reply-form-box" style="display: none;">
-                        <textarea id="reply-input-${comment.id}" placeholder="Viết phản hồi..."></textarea>
-                        <button onclick="sendReply(${comment.id})" class="btn-send-reply">Gửi</button>
-                    </div>
-                </div>
-            `).join('');
+            
+            commentsList.innerHTML = data.comments.map(c => renderCommentTree(c)).join('');
+            
+            // Hiển thị pagination nếu có nhiều trang
+            if (data.total_pages > 1) {
+                paginationControls.style.display = 'block';
+                pageInfo.textContent = `Trang ${data.page}/${data.total_pages}`;
+                prevBtn.disabled = !data.has_previous;
+                nextBtn.disabled = !data.has_next;
+                currentPage = data.page;
+            } else {
+                paginationControls.style.display = 'none';
+            }
         });
 }
-
 function likeComment(id) {
     if (!isAuthenticated) return alert("Vui lòng đăng nhập!");
     fetch(`/comment/${id}/like/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
-    .then(r => r.json()).then(data => { if (data.status === 'success') loadComments(); });
+    .then(r => r.json()).then(data => { if (data.status === 'success') loadComments(currentPage); });
 }
 
 function toggleReplyForm(id) {
@@ -295,7 +329,7 @@ function sendReply(commentId) {
         body: JSON.stringify({ noi_dung: content })
     })
     .then(r => r.json()).then(data => {
-        if (data.status === 'success') { input.value = ''; loadComments(); }
+        if (data.status === 'success') { input.value = ''; loadComments(currentPage); }
         else { alert(data.message); }
     });
 }
@@ -303,14 +337,23 @@ function sendReply(commentId) {
 function deleteComment(id) {
     if (confirm("Bạn có chắc muốn xóa bình luận này?")) {
         fetch(`/comment/${id}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
-        .then(r => r.json()).then(data => { if (data.status === 'success') loadComments(); });
+        .then(r => r.json()).then(data => { if (data.status === 'success') loadComments(currentPage); });
     }
 }
 
 function pinComment(id) {
     fetch(`/comment/${id}/pin/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
-    .then(r => r.json()).then(data => { if (data.status === 'success') loadComments(); });
+    .then(r => r.json()).then(data => { if (data.status === 'success') loadComments(currentPage); });
 }
+
+// Pagination event listeners
+document.getElementById('prevPage').addEventListener('click', () => {
+    if (currentPage > 1) loadComments(currentPage - 1);
+});
+
+document.getElementById('nextPage').addEventListener('click', () => {
+    loadComments(currentPage + 1);
+});
 
 // --- RATING ---
 // --- RATING FINAL ---
@@ -384,6 +427,30 @@ function initRating() {
 document.addEventListener('DOMContentLoaded', function () {
   loadComments();
   initRating();
+  // Xử lý đóng mở Mục lục (Accordion)
+  const volLabels = document.querySelectorAll('.toggle-vol');
+ volLabels.forEach(label => {
+    label.addEventListener('click', function() {
+        const chapterList = this.nextElementSibling;
+        
+        // --- THÊM ĐOẠN NÀY ĐỂ ĐÓNG CÁC VOL KHÁC ---
+        document.querySelectorAll('.chapter-collapse').forEach(el => {
+            if (el !== chapterList) el.classList.remove('show');
+        });
+        document.querySelectorAll('.toggle-vol').forEach(el => {
+            if (el !== this) el.classList.remove('active');
+        });
+        // ------------------------------------------
+
+        chapterList.classList.toggle('show');
+        this.classList.toggle('active');
+    });
+});
+
+  // Tự động mở Vol đầu tiên nếu có chương (tùy chọn)
+  if (volLabels.length > 0) {
+     
+  }
   
   const commentForm = document.getElementById('commentForm');
   if (commentForm) {
@@ -398,7 +465,7 @@ document.addEventListener('DOMContentLoaded', function () {
         body: JSON.stringify({ noi_dung: content })
       })
       .then(r => r.json()).then(data => {
-        if (data.status === 'success') { textarea.value = ''; loadComments(); }
+        if (data.status === 'success') { textarea.value = ''; loadComments(1); }
       });
     });
   }
@@ -489,10 +556,40 @@ document.addEventListener('DOMContentLoaded', function () {
 .comment-actions { padding-left: 60px; display: flex; gap: 15px; font-size: 13px; color: #64748b; }
 .act-btn { cursor: pointer; }
 .act-btn.liked { color: #2ecc71; font-weight: bold; }
-.replies-container { margin-left: 60px; margin-top: 15px; background: #f8f9fa; border-radius: 8px; padding: 10px; }
-.reply-item { display: flex; gap: 10px; margin-bottom: 10px; }
+/* Container đầu tiên chứa các phản hồi của bình luận chính */
+.replies-container { 
+    margin-left: 60px; /* Chỉ thụt lề 1 lần duy nhất ở đây */
+    margin-top: 10px; 
+    padding: 5px 0 5px 15px; 
+    border-left: 2px solid #f1f1f1; /* Đường kẻ dọc mỏng cho tinh tế */
+    display: flex;
+    flex-direction: column;
+}
+
+/* TẤT CẢ các container con bên trong nó sẽ không thụt lề thêm nữa */
+.replies-container .replies-container {
+    margin-left: 0 !important; 
+    padding-left: 0;
+    border-left: none; /* Bỏ đường kẻ lồng nhau */
+}
+
+/* Mỗi item phản hồi */
+.reply-item { 
+    display: block; 
+    width: 100%; 
+    margin-bottom: 12px;
+}
 .btn-primary-send { background: #2ecc71; color: white; border: none; padding: 8px 25px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
 .muted-text-login { text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; }
+
+/* Pagination controls */
+.pagination-controls { margin-top: 20px; }
+.page-btn {
+    background: #2ecc71; color: white; border: none; padding: 8px 16px; 
+    border-radius: 6px; cursor: pointer; margin: 0 5px;
+}
+.page-btn:disabled { background: #ccc; cursor: not-allowed; }
+.page-btn:hover:not(:disabled) { background: #27ae60; }
 
 .story-status-row { display: flex; gap: 10px; margin: 15px 0; align-items: center; }
 .badge-custom {
@@ -502,5 +599,72 @@ document.addEventListener('DOMContentLoaded', function () {
 }
 .badge-dang_ra, .badge-ongoing, .badge-dang_cap_nhat { background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
 .badge-type { background-color: #f3f4f6; color: #151514; border-color: #d1d5db; }
+
+/* Container chứa các phản hồi con */
+.replies-container {
+    margin-left: 45px; /* Tạo độ lệch để phân biệt cha con */
+    margin-top: 10px;
+    border-left: 2px solid #edf2f7; /* Đường kẻ dọc để dễ nhìn luồng thảo luận */
+    padding-left: 15px;
+}
+
+.reply-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #f9fafb;
+}
+
+.reply-item:last-child {
+    border-bottom: none;
+}
+
+/* Form reply nhỏ gọn hơn cho cấp con */
+.reply-form-box textarea {
+    width: 100%;
+    height: 60px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    margin-top: 10px;
+    font-size: 14px;
+    resize: none;
+}
+
+.btn-send-reply {
+    background: #2ecc71;
+    color: white;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 5px;
+    font-size: 13px;
+}
+
+/* Mặc định ẩn danh sách chương */
+.chapter-collapse {
+    display: none;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+/* Khi có class 'show' thì hiện ra */
+.chapter-collapse.show {
+    display: block;
+}
+
+/* Xoay icon khi mở */
+.volume-label.active .arrow-icon {
+    transform: rotate(180deg);
+}
+
+.arrow-icon {
+    font-size: 10px;
+    transition: transform 0.3s;
+    color: #2ecc71;
+}
+
+.volume-label:hover {
+    background: #e2f9e9 !important; /* Hiệu ứng hover cho tiêu đề vol */
+}
 </style>
 {% endblock %}

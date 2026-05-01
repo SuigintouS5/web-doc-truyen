@@ -219,3 +219,26 @@
     color: #000;
     background-color: #f0f0f0; /* Hiện vòng tròn xám nhạt khi di chuột */
 }
+
+/* Avatar tròn trịa */
+.avatar-wrapper {
+    width: 48px; height: 48px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #eee;
+}
+.avatar-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+.reply-avatar { width: 36px; height: 36px; }
+
+/* Phân cấp phản hồi */
+.replies-container {
+    margin-left: 60px;
+    margin-top: 10px;
+    border-left: 2px solid #f1f1f1;
+    padding-left: 15px;
+}
+.replies-container .replies-container { margin-left: 0 !important; border-left: none; }
+
+/* Nút tương tác */
+.act-btn { cursor: pointer; font-size: 13px; margin-right: 15px; color: #64748b; }
+.act-btn:hover { color: #2ecc71; }
+.del-btn:hover { color: #ff4757; }
+.username { font-weight: bold; color: #2c3e50; }
+.comment-date { font-size: 11px; color: #94a3b8; }

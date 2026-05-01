@@ -1,25 +1,31 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // --- KHAI BÁO BIẾN (GIỮ NGUYÊN) ---
+    // --- KHAI BÁO BIẾN ---
     const readerMain = document.getElementById('reader-main');
     const content = document.getElementById('chapter-content');
     const readerContainer = document.getElementById('reader-container');
-    
     const settingsPanel = document.getElementById('settings-panel');
     const tocSidebar = document.getElementById('toc-sidebar');
     const overlay = document.getElementById('overlay');
-    
     const fsRange = document.getElementById('fs-range');
     const fsLabel = document.getElementById('fs-label');
     const fontSelect = document.getElementById('font-select');
-    const bookmarkBtn = document.getElementById('btn-bookmark');
-
+    
     const commentInput = document.getElementById('comment-content-main');
     const submitCommentBtn = document.getElementById('submit-comment-ajax');
     const commentsContainer = document.getElementById('comments-list-container');
+    
+    // Đảm bảo các input ẩn này có trong HTML để lấy ID chương và Token bảo mật
     const chuongId = document.getElementById('chuong-id')?.value;
     const csrfToken = document.getElementById('csrf-token')?.value;
 
-    // --- 1. TỰ ĐỘNG LOAD CẤU HÌNH (GIỮ NGUYÊN) ---
+    // --- UTILS ---
+    function closeAllPanels() {
+        if(tocSidebar) tocSidebar.classList.remove('active');
+        if(overlay) overlay.classList.remove('active');
+        if(settingsPanel) settingsPanel.style.display = 'none';
+    }
+
+    // --- 1. TẢI CẤU HÌNH GIAO DIỆN ---
     const savedBg = localStorage.getItem('reader-bg');
     const savedTxt = localStorage.getItem('reader-txt');
     const savedFs = localStorage.getItem('reader-fs');
@@ -43,17 +49,20 @@ document.addEventListener('DOMContentLoaded', function() {
         fontSelect.value = savedFont;
     }
 
-    // --- 2. LOGIC UI (TOC & SETTINGS - GIỮ NGUYÊN) ---
+    // --- 2. LOGIC ĐIỀU KHIỂN (UI) ---
     const btnToc = document.getElementById('btn-toc');
-    if(btnToc && tocSidebar && overlay) {
-        btnToc.onclick = () => { tocSidebar.classList.add('active'); overlay.classList.add('active'); };
-    }
+    if(btnToc) btnToc.onclick = () => { tocSidebar.classList.add('active'); overlay.classList.add('active'); };
+    
     const btnCloseToc = document.getElementById('close-toc');
     if(btnCloseToc) btnCloseToc.onclick = closeAllPanels;
+    if(overlay) overlay.onclick = closeAllPanels;
 
     const btnSettings = document.getElementById('btn-settings');
-    if(btnSettings && settingsPanel) {
-        btnSettings.onclick = (e) => { e.stopPropagation(); settingsPanel.style.display = (settingsPanel.style.display === 'block') ? 'none' : 'block'; };
+    if(btnSettings) {
+        btnSettings.onclick = (e) => { 
+            e.stopPropagation(); 
+            settingsPanel.style.display = (settingsPanel.style.display === 'block') ? 'none' : 'block'; 
+        };
     }
 
     document.querySelectorAll('.c-dot').forEach(dot => {
@@ -76,99 +85,111 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // --- 3. LOGIC BÌNH LUẬN (FINAL CẬP NHẬT) ---
+    // --- 3. LOGIC BÌNH LUẬN ---
 
-    window.loadComments = function() {
-        if (!chuongId || !commentsContainer) return;
-        fetch(`/chuong/${chuongId}/get-comments/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(res => res.json())
-        .then(data => renderComments(data.comments))
-        .catch(err => console.error("Lỗi tải bình luận:", err));
-    }
-
-    function renderComments(comments) {
-        if (!comments || comments.length === 0) {
-            commentsContainer.innerHTML = '<p class="no-comment">Chưa có bình luận nào.</p>';
-            return;
+    // Hàm render đệ quy để hiển thị đa cấp phản hồi
+    function renderCommentTree(comment, level = 0) {
+        const isReply = level > 0;
+        const avatarPath = comment.avatar || '/static/img/avatar.jpg';
+        
+        let repliesHtml = '';
+        if (comment.replies && comment.replies.length > 0) {
+            // Càng vào sâu đường kẻ càng rõ, thụt lề chuẩn để "chui vào trong" cha
+            repliesHtml = `
+                <div class="replies-container" style="margin-left: ${level === 0 ? '20px' : '30px'}; border-left: 1px solid #e2e8f0; padding-left: 15px; margin-top: 5px;">
+                    ${comment.replies.map(r => renderCommentTree(r, level + 1)).join('')}
+                </div>`;
         }
-        let html = '';
-        comments.forEach(cmt => {
-            const avatarPath = cmt.user_avatar || cmt.avatar || '/static/img/avatar.jpg';
-            
-            html += `
-                <div class="comment-item" style="padding: 15px 0; border-bottom: 1px solid #eee;">
-                    <div style="display: flex; gap: 15px;">
-                        <img src="${avatarPath}" onerror="this.src='/static/img/avatar.jpg'" style="width:45px; height:45px; border-radius:50%; object-fit:cover;">
-                        <div style="flex:1;">
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="font-weight:bold;">${cmt.username}</span>
-                                <span style="font-size:12px; color:#999;">${cmt.created_at || cmt.ngay_tao}</span>
-                            </div>
-                            <p style="margin: 8px 0;">${cmt.noi_dung}</p>
-                            <div style="display:flex; gap:20px; font-size:13px; color:#777;">
-                                <span style="cursor:pointer;" onclick="likeComment(${cmt.id})">👍 ${cmt.likes || cmt.total_likes || 0}</span>
-                                <span style="cursor:pointer;" onclick="focusReply(${cmt.id}, '${cmt.username}')">💬 Phản hồi</span>
-                                ${cmt.can_delete ? `<span style="cursor:pointer; color:#e74c3c;" onclick="deleteComment(${cmt.id})">Xóa</span>` : ''}
-                            </div>
 
-                            <div class="replies-list" style="margin-top: 12px; margin-left: 20px; padding-left: 15px; border-left: 2px solid #f0f0f0;">
-                                ${cmt.replies && cmt.replies.length > 0 ? cmt.replies.map(reply => `
-                                    <div class="reply-item" style="margin-bottom: 8px; display: flex; gap: 10px;">
-                                        <img src="${reply.avatar || '/static/img/avatar.jpg'}" onerror="this.src='/static/img/avatar.jpg'" style="width:30px; height:30px; border-radius:50%; object-fit:cover;">
-                                        <div style="flex:1;">
-                                            <div style="font-size:12px;">
-                                                <span style="font-weight:bold;">${reply.username}</span>
-                                                <span style="color:#999; margin-left:10px;">${reply.ngay_tao}</span>
-                                            </div>
-                                            <p style="margin: 2px 0; font-size:13.5px;">${reply.noi_dung}</p>
-                                        </div>
-                                    </div>
-                                `).join('') : ''}
-                            </div>
+        return `
+            <div class="comment-item" id="comment-${comment.id}" style="margin-top: 15px;">
+                <div style="display: flex; gap: 12px; align-items: flex-start;">
+                    <div style="width: ${isReply ? '32px' : '40px'}; height: ${isReply ? '32px' : '40px'}; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 1px solid #eee;">
+                        <img src="${avatarPath}" onerror="this.src='/static/img/avatar.jpg'" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+                            <span style="font-weight: 600; color: #334155; font-size: 14px;">${comment.username}</span>
+                            <span style="font-size: 11px; color: #94a3b8;">${comment.ngay_tao}</span>
+                        </div>
+                        <div class="comment-body" style="font-size: 14px; line-height: 1.5; color: #1e293b; margin-bottom: 6px;">
+                            ${comment.noi_dung}
+                        </div>
+                        <div class="comment-actions" style="display: flex; gap: 16px; font-size: 12px; color: #64748b;">
+                            <span style="cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="likeComment(${comment.id})">
+                                👍 <b class="like-count">${comment.total_likes || 0}</b>
+                            </span>
+                            <span style="cursor: pointer; font-weight: 500;" onclick="focusReply(${comment.id}, '${comment.username}')">Phản hồi</span>
+                            ${comment.can_delete ? `<span style="cursor: pointer; color: #f87171;" onclick="deleteComment(${comment.id})">Xóa</span>` : ''}
                         </div>
                     </div>
-                </div>`;
-        });
-        commentsContainer.innerHTML = html;
+                </div>
+                ${repliesHtml}
+            </div>
+        `;
     }
 
+    // Tải bình luận
+    window.loadComments = function() {
+        if (!chuongId || !commentsContainer) return;
+        
+        fetch(`/chuong/${chuongId}/get-comments/`, { 
+            headers: { 'X-Requested-With': 'XMLHttpRequest' } 
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.comments || data.comments.length === 0) {
+                commentsContainer.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">Chưa có bình luận nào.</p>';
+                return;
+            }
+            commentsContainer.innerHTML = data.comments.map(c => renderCommentTree(c)).join('');
+        })
+        .catch(err => console.error("Lỗi tải dữ liệu:", err));
+    };
+
+    loadComments();
+
+    // Xử lý Thích (Like)
     window.likeComment = function(id) {
+        if (!csrfToken) return alert("Vui lòng đăng nhập!");
+
         fetch(`/comment/${id}/like/`, { 
             method: 'POST', 
             headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' } 
         })
         .then(res => res.json())
-        .then(data => { if (data.status === 'success') loadComments(); })
-        .catch(() => alert("Vui lòng đăng nhập để thích!"));
+        .then(data => { 
+            if (data.status === 'success') {
+                const commentEl = document.getElementById(`comment-${id}`);
+                if (commentEl) {
+                    const likeCountEl = commentEl.querySelector('.like-count');
+                    if (likeCountEl) likeCountEl.innerText = data.total_likes;
+                }
+            } else {
+                alert(data.message || "Bạn cần đăng nhập để thực hiện.");
+            }
+        });
     };
 
-    window.deleteComment = function(id) {
-        if (!confirm("Bạn có chắc muốn xóa bình luận này?")) return;
-        fetch(`/comment/${id}/delete/`, { 
-            method: 'POST', 
-            headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' } 
-        })
-        .then(res => res.json())
-        .then(data => { if (data.status === 'success') loadComments(); });
-    };
-
+    // Phản hồi bình luận
     window.focusReply = function(id, username) {
-        if (commentInput) {
-            commentInput.focus();
-            commentInput.placeholder = "Trả lời " + (username || "người dùng") + "...";
-            commentInput.dataset.parentId = id; 
-            commentInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        if (!commentInput) return;
+        commentInput.focus();
+        commentInput.placeholder = `Trả lời ${username}...`;
+        commentInput.dataset.parentId = id;
+        commentInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
+    // Gửi bình luận qua AJAX
     if (submitCommentBtn) {
         submitCommentBtn.onclick = function() {
             const contentText = commentInput.value.trim();
             if (!contentText) return;
 
-            const parentId = commentInput.dataset.parentId || '';
-            const bodyData = { 'noi_dung': contentText };
-            if (parentId) bodyData['parent_id'] = parentId;
+            const bodyData = new URLSearchParams({
+                'noi_dung': contentText,
+                'parent_id': commentInput.dataset.parentId || ''
+            });
 
             fetch(`/chuong/${chuongId}/comment/`, {
                 method: 'POST',
@@ -177,50 +198,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/x-www-form-urlencoded', 
                     'X-Requested-With': 'XMLHttpRequest' 
                 },
-                body: new URLSearchParams(bodyData)
+                body: bodyData
             })
             .then(res => res.json())
-            .then(data => { 
-                if (data.status === 'success') { 
-                    commentInput.value = ''; 
+            .then(data => {
+                if (data.status === 'success') {
+                    commentInput.value = '';
                     commentInput.placeholder = "Nhập bình luận của bạn...";
-                    delete commentInput.dataset.parentId; 
-                    loadComments(); 
-                } else {
-                    alert(data.message || "Không thể gửi bình luận.");
+                    delete commentInput.dataset.parentId;
+                    loadComments(); // Tải lại toàn bộ cây bình luận để cập nhật vị trí mới
                 }
             });
         };
     }
 
-    loadComments();
+    // Xóa bình luận
+    window.deleteComment = function(id) {
+        if (!confirm('Bạn chắc chắn muốn xóa bình luận này?')) return;
 
-    // --- 4. LOGIC BOOKMARK (GIỮ NGUYÊN) ---
-    if (bookmarkBtn) {
-        bookmarkBtn.onclick = function() {
-            fetch(`/chuong/${chuongId}/bookmark/`, { 
-                method: 'POST', 
-                headers: { 
-                    'X-CSRFToken': csrfToken, 
-                    'X-Requested-With': 'XMLHttpRequest' 
-                } 
-            })
-            .then(res => res.json())
-            .then(data => { 
-                if (data.status === 'success') {
-                    this.classList.toggle('active');
-                    alert(data.action === 'added' ? 'Đã lưu đánh dấu!' : 'Đã bỏ đánh dấu.');
-                } 
-            })
-            .catch(() => alert("Vui lòng đăng nhập để lưu dấu trang!"));
-        };
-    }
-
-    // --- 5. TIỆN ÍCH (GIỮ NGUYÊN) ---
-    function closeAllPanels() {
-        if(tocSidebar) tocSidebar.classList.remove('active');
-        if(overlay) overlay.classList.remove('active');
-        if(settingsPanel) settingsPanel.style.display = 'none';
-    }
-    if(overlay) overlay.onclick = closeAllPanels;
+        fetch(`/comment/${id}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') loadComments();
+            else alert(data.message);
+        });
+    };
 });

@@ -16,7 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import (
     User,Truyen, Genre, Comment, Chuong, LichSuDoc, Volume,
-    Follow, Rating, CommentLike, CommentReply, Notification, Bookmark,Profile ,SocialLink ,ViewStatistic
+    Follow, Rating, CommentLike, Notification, Bookmark,Profile ,SocialLink ,ViewStatistic
 )
 
 # =========================
@@ -842,49 +842,85 @@ def get_user_rating_ajax(request, truyen_id):
 
 # --- PHẦN 1: LẤY VÀ THÊM (GIỮ TỪ CODE 1) ---
 
+def get_comment_tree(comments, request):
+    """Hàm helper để tổ chức bình luận thành dạng cây"""
+    comment_map = {}
+    tree = []
+
+    for c in comments:
+        avatar_url = c.user.profile.avatar.url if hasattr(c.user, 'profile') and c.user.profile.avatar else '/static/img/avatar.jpg'
+        
+        # Thêm thông tin volume và chương nếu có
+        chuong_ten = None
+        volume_ten = None
+        if c.chuong:
+            chuong_ten = f"Chương {c.chuong.so_chuong}: {c.chuong.ten}"
+            volume_ten = c.chuong.volume.ten if c.chuong.volume else None
+        
+        data = {
+            'id': c.id,
+            'username': c.user.username or c.user.email.split('@')[0],
+            'avatar': avatar_url,
+            'noi_dung': c.noi_dung,
+            'ngay_tao': c.ngay_tao.strftime('%H:%M %d-%m-%Y'),
+            'total_likes': c.total_likes,
+            'user_liked': c.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
+            'is_pinned': c.is_pinned,
+            'can_delete': (request.user == c.user or request.user.is_staff),
+            'chuong_ten': chuong_ten,
+            'volume_ten': volume_ten,
+            'replies': [] # Nơi chứa các reply của nó
+        }
+        comment_map[c.id] = data
+
+    for c in comments:
+        if c.parent_id:
+            # Nếu có cha, đẩy vào danh sách replies của cha
+            parent = comment_map.get(c.parent_id)
+            if parent:
+                parent['replies'].append(comment_map[c.id])
+        else:
+            # Nếu không có cha, đây là bình luận gốc
+            tree.append(comment_map[c.id])
+    return tree
+
 def get_comments_ajax(request, truyen_id):
     try:
         truyen = get_object_or_404(Truyen, id=truyen_id)
         chuong_id = request.GET.get('chuong_id')
+        page = request.GET.get('page', 1)
+        
         query = Comment.objects.filter(truyen=truyen)
+        
         if chuong_id:
             query = query.filter(chuong_id=chuong_id)
 
-        comments = query.select_related('user', 'user__profile', 'chuong').prefetch_related(
-            'likes', 'replies', 'replies__user', 'replies__user__profile'
-        ).order_by('-is_pinned', '-ngay_tao')
-        
-        comments_data = []
-        for comment in comments:
-            avatar_url = comment.user.profile.avatar.url if hasattr(comment.user, 'profile') and comment.user.profile.avatar else '/static/img/avatar.jpg'
-            display_name = comment.user.username or comment.user.email.split('@')[0]
-            
-            replies_list = []
-            for r in comment.replies.all():
-                r_avatar = r.user.profile.avatar.url if hasattr(r.user, 'profile') and r.user.profile.avatar else '/static/img/avatar.jpg'
-                replies_list.append({
-                    'id': r.id,
-                    'username': r.user.username or r.user.email.split('@')[0],
-                    'avatar': r_avatar,
-                    'noi_dung': r.noi_dung,
-                    'ngay_tao': r.ngay_tao.strftime('%H:%M %d-%m-%Y'),
-                    'can_delete': (request.user == r.user or request.user.is_staff)
-                })
+        # Lấy tất cả comments để xây dựng cây
+        all_comments = query.select_related('user', 'user__profile', 'chuong', 'chuong__volume').prefetch_related(
+            'likes'
+        ).order_by('-ngay_tao')  # Mới nhất trước
 
-            comments_data.append({
-                'id': comment.id,
-                'username': display_name,
-                'avatar': avatar_url,
-                'noi_dung': comment.noi_dung,
-                'ngay_tao': comment.ngay_tao.strftime('%H:%M %d-%m-%Y'),
-                'total_likes': comment.total_likes,
-                'user_liked': comment.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
-                'is_pinned': comment.is_pinned,
-                'chuong_ten': f"Chương {comment.chuong.so_chuong}" if comment.chuong else "Tổng quan",
-                'can_delete': (request.user == comment.user or request.user.is_staff),
-                'replies': replies_list
-            })
-        return JsonResponse({'comments': comments_data})
+        # Xây dựng cây comments
+        comments_data = get_comment_tree(all_comments, request)
+        
+        # Pagination chỉ cho comments gốc (không phải replies)
+        root_comments = [c for c in comments_data if not hasattr(c, 'parent') or c.get('parent') is None]
+        
+        paginator = Paginator(root_comments, 10)  # 10 comments chính per page
+        try:
+            paginated_comments = paginator.page(page)
+        except PageNotAnInteger:
+            paginated_comments = paginator.page(1)
+        except EmptyPage:
+            paginated_comments = paginator.page(paginator.num_pages)
+        
+        return JsonResponse({
+            'comments': list(paginated_comments),
+            'has_next': paginated_comments.has_next(),
+            'has_previous': paginated_comments.has_previous(),
+            'page': paginated_comments.number,
+            'total_pages': paginator.num_pages
+        })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
@@ -918,27 +954,43 @@ def like_comment_ajax(request, comment_id):
 @login_required
 def reply_comment_ajax(request, comment_id):
     if request.method == 'POST':
-        data = json.loads(request.body)
-        noi_dung = data.get('noi_dung', '').strip()
-        comment = get_object_or_404(Comment, id=comment_id)
-        CommentReply.objects.create(comment=comment, user=request.user, noi_dung=noi_dung)
-        if comment.user != request.user:
-            Notification.objects.create(
-                user=comment.user, user_from=request.user, truyen=comment.truyen,
-                noi_dung=f"{request.user.username} đã phản hồi bình luận của bạn", loai='reply_comment'
+        try:
+            data = json.loads(request.body)
+            noi_dung = data.get('noi_dung', '').strip()
+            if not noi_dung:
+                return JsonResponse({'status': 'error', 'message': 'Nội dung trống'}, status=400)
+            
+            parent_comment = get_object_or_404(Comment, id=comment_id)
+            
+            # Tạo reply mới chính là một Comment có parent
+            new_reply = Comment.objects.create(
+                truyen=parent_comment.truyen,
+                chuong=parent_comment.chuong,
+                user=request.user,
+                noi_dung=noi_dung,
+                parent=parent_comment
             )
-        return JsonResponse({'status': 'success'})
+            
+            if parent_comment.user != request.user:
+                Notification.objects.create(
+                    user=parent_comment.user, 
+                    user_from=request.user, 
+                    truyen=parent_comment.truyen,
+                    noi_dung=f"{request.user.username} đã phản hồi bình luận của bạn", 
+                    loai='reply_comment'
+                )
+            return JsonResponse({'status': 'success', 'id': new_reply.id})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    return JsonResponse({'status': 'error'}, status=405)
 
 # --- PHẦN 2: SỬA, XÓA, GHIM (DÙNG CODE 2 CỦA BẠN - ĐÃ TINH CHỈNH) ---
 
 @login_required
 def edit_comment_ajax(request, comment_id):
-    """AJAX: Sửa bình luận (Hỗ trợ cả Comment gốc và Reply)"""
-    obj = Comment.objects.filter(id=comment_id).first()
-    if not obj:
-        obj = get_object_or_404(CommentReply, id=comment_id)
+    comment = get_object_or_404(Comment, id=comment_id)
     
-    if request.user != obj.user and not request.user.is_staff:
+    if request.user != comment.user and not request.user.is_staff:
         return JsonResponse({'status': 'error', 'message': 'Không có quyền'}, status=403)
     
     if request.method == 'POST':
@@ -948,29 +1000,24 @@ def edit_comment_ajax(request, comment_id):
             if not noi_dung:
                 return JsonResponse({'status': 'error', 'message': 'Nội dung không được rỗng'}, status=400)
             
-            obj.noi_dung = noi_dung
-            if hasattr(obj, 'is_edited'): obj.is_edited = True
-            obj.save()
-            
-            return JsonResponse({'status': 'success', 'noi_dung': obj.noi_dung})
+            comment.noi_dung = noi_dung
+            comment.is_edited = True
+            comment.save()
+            return JsonResponse({'status': 'success', 'noi_dung': comment.noi_dung})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     return JsonResponse({'status': 'error'}, status=405)
 
 @login_required
 def delete_comment_ajax(request, comment_id):
-    """AJAX: Xóa bình luận"""
-    obj = Comment.objects.filter(id=comment_id).first()
-    is_reply = False
-    if not obj:
-        obj = get_object_or_404(CommentReply, id=comment_id)
-        is_reply = True
+    comment = get_object_or_404(Comment, id=comment_id)
     
-    if request.user != obj.user and not request.user.is_staff:
+    if request.user != comment.user and not request.user.is_staff:
         return JsonResponse({'status': 'error', 'message': 'Không có quyền'}, status=403)
     
-    obj.delete()
-    return JsonResponse({'status': 'success', 'is_reply': is_reply})
+    # Khi xóa cha, Django sẽ tự động xóa các reply con do on_delete=models.CASCADE
+    comment.delete()
+    return JsonResponse({'status': 'success'})
 
 @login_required
 def pin_comment_ajax(request, comment_id):
@@ -985,8 +1032,9 @@ def pin_comment_ajax(request, comment_id):
 
 @login_required
 def add_chuong_comment_ajax(request, chuong_id):
-    # Chỉ cần check POST là đủ, header có thể thiếu tùy trình duyệt
     if request.method == 'POST':
+        # Tùy vào việc bạn gửi dữ liệu dạng Form hay JSON
+        # Nếu gửi qua Form (request.POST), giữ nguyên logic lấy data bên dưới:
         noi_dung = request.POST.get('noi_dung', '').strip()
         parent_id = request.POST.get('parent_id')
         
@@ -997,77 +1045,66 @@ def add_chuong_comment_ajax(request, chuong_id):
             chuong_obj = get_object_or_404(Chuong, id=chuong_id)
             truyen_obj = chuong_obj.volume.truyen
             
+            # Khởi tạo giá trị parent là None
+            parent_comment = None
+            
+            # Nếu có parent_id, tìm comment cha ngay trong bảng Comment
             if parent_id and parent_id.strip():
-                # Lưu vào bảng Reply
                 parent_comment = get_object_or_404(Comment, id=parent_id)
-                CommentReply.objects.create(
-                    comment=parent_comment,
-                    user=request.user,
-                    noi_dung=noi_dung
-                )
-                return JsonResponse({'status': 'success', 'message': 'Đã phản hồi'})
-            else:
-                # Lưu vào bảng Comment gốc
-                Comment.objects.create(
-                    user=request.user,
+            
+            # Tạo bình luận mới (dùng chung 1 bảng duy nhất)
+            new_comment = Comment.objects.create(
+                user=request.user,
+                truyen=truyen_obj,
+                chuong=chuong_obj,
+                noi_dung=noi_dung,
+                parent=parent_comment # Nếu là reply của reply, parent sẽ trỏ đến comment con trước đó
+            )
+
+            # Xử lý thông báo nếu đây là một phản hồi
+            if parent_comment and parent_comment.user != request.user:
+                Notification.objects.create(
+                    user=parent_comment.user,
+                    user_from=request.user,
                     truyen=truyen_obj,
-                    chuong=chuong_obj,
-                    noi_dung=noi_dung
+                    noi_dung=f"{request.user.username} đã phản hồi bình luận của bạn",
+                    loai='reply_comment'
                 )
-                return JsonResponse({'status': 'success', 'message': 'Đã đăng bình luận'})
                 
-        except Chuong.DoesNotExist:
-            return JsonResponse({'status': 'error', 'message': 'Chương không tồn tại'}, status=404)
+            msg = 'Đã phản hồi' if parent_comment else 'Đã đăng bình luận'
+            return JsonResponse({'status': 'success', 'message': msg, 'id': new_comment.id})
+                
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
     return JsonResponse({'status': 'error', 'message': 'Yêu cầu không hợp lệ'}, status=405)
 
+
+
 def get_chuong_comments_ajax(request, chuong_id):
     try:
-        # Lấy chương và truyện liên quan
+        # 1. Lấy đối tượng chương
         chuong = get_object_or_404(Chuong, id=chuong_id)
-        # Lấy toàn bộ bình luận của chương này
-        comments = Comment.objects.filter(chuong=chuong).select_related(
-            'user', 'user__profile'
+
+        # 2. Lấy tất cả bình luận của chương (bao gồm nested replies)
+        comments = Comment.objects.filter(
+            chuong=chuong
+        ).select_related(
+            'user', 
+            'user__profile'
         ).prefetch_related(
-            'likes', 'replies', 'replies__user', 'replies__user__profile'
+            'likes'
         ).order_by('-is_pinned', '-ngay_tao')
-        
-        comments_data = []
-        for comment in comments:
-            avatar_url = '/static/img/avatar.jpg'
-            if hasattr(comment.user, 'profile') and comment.user.profile.avatar:
-                avatar_url = comment.user.profile.avatar.url
 
-            # Render danh sách phản hồi (Replies)
-            replies_list = []
-            for r in comment.replies.all():
-                r_avatar = r.user.profile.avatar.url if hasattr(r.user, 'profile') and r.user.profile.avatar else '/static/img/avatar.jpg'
-                replies_list.append({
-                    'id': r.id,
-                    'username': r.user.username,
-                    'avatar': r_avatar,
-                    'noi_dung': r.noi_dung,
-                    'ngay_tao': r.ngay_tao.strftime('%H:%M %d-%m-%Y'),
-                    'can_delete': (request.user == r.user or request.user.is_staff)
-                })
+        # 3. Sử dụng get_comment_tree để tổ chức thành cây
+        comments_data = get_comment_tree(comments, request)
 
-            comments_data.append({
-                'id': comment.id,
-                'username': comment.user.username,
-                'avatar': avatar_url,
-                'noi_dung': comment.noi_dung,
-                'ngay_tao': comment.ngay_tao.strftime('%H:%M %d-%m-%Y'),
-                'total_likes': comment.likes.count(),
-                'user_liked': comment.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
-                'is_pinned': comment.is_pinned,
-                'can_delete': (request.user == comment.user or request.user.is_staff),
-                'replies': replies_list
-            })
         return JsonResponse({'comments': comments_data})
+
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        # In lỗi ra console server để debug nếu cần
+        print(f"Error in get_chuong_comments_ajax: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': 'Đã có lỗi xảy ra khi tải bình luận.'}, status=500)
 
 # =========================
 # 10. BOOKMARK CHƯƠNG (AJAX)

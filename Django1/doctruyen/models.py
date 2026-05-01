@@ -220,23 +220,26 @@ class Comment(models.Model):
     ngay_tao = models.DateTimeField(auto_now_add=True)
     is_pinned = models.BooleanField(default=False)
     is_edited = models.BooleanField(default=False)
-    
+
+    # Chìa khóa để reply của reply:
+    parent = models.ForeignKey(
+        'self', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True, 
+        related_name='replies'
+    )
+
     @property
     def total_likes(self):
-        """Đếm số lượng like của bình luận này"""
         return self.likes.count()
 
     class Meta:
-        ordering = ["-is_pinned", "-ngay_tao"]
+        # Cập nhật sắp xếp: Bình luận gốc lên trước, reply theo thời gian
+        ordering = ["-is_pinned", "ngay_tao"]
 
     def __str__(self):
         return self.noi_dung[:30]
-
-class CommentReply(models.Model):
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name="replies")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    noi_dung = models.TextField()
-    ngay_tao = models.DateTimeField(auto_now_add=True)
 
 class CommentLike(models.Model):
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name="likes")
