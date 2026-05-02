@@ -126,6 +126,29 @@
     </div>
 </div>
 
+<!-- Modal Share Quyền (Mới bổ sung) -->
+<div id="shareModal" class="admin-modal">
+    <div class="modal-white-content">
+        <div class="modal-white-header">
+            <h3>Share quyền quản trị</h3>
+            <span class="close-modal-btn" onclick="closeAdminModal('shareModal')">&times;</span>
+        </div>
+        <div class="modal-white-body">
+            <div class="modal-info-box">
+                <h4>Truyện: <span class="hl-blue">{{ truyen.ten }}</span></h4>
+                <p style="font-size: 13px; color: #64748b; margin-top: 8px;">
+                    * Người được share sẽ có quyền đăng chương và sửa nội dung cùng bạn.
+                </p>
+            </div>
+            <input type="text" id="shareUsernameInput" class="ui-input" placeholder="Nhập tên người dùng muốn share...">
+            <div class="modal-footer-btns">
+                <button class="btn-cancel" onclick="closeAdminModal('shareModal')">Hủy</button>
+                <button class="btn-black" id="shareConfirmBtn">Xác nhận Share</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="deleteModal" class="admin-modal">
     <div class="modal-white-content" style="max-width: 420px;">
         <div class="modal-white-body" style="text-align: center; padding: 40px 30px;">
@@ -142,7 +165,9 @@
 </div>
 
 <script>
-    function openAdminModal(id) { document.getElementById(id).classList.add('open'); }
+    function openAdminModal(id) { 
+    const modal = document.getElementById(id);
+    if(modal) modal.classList.add('open'); }
     function closeAdminModal(id) { document.getElementById(id).classList.remove('open'); }
     
     window.onclick = function(e) { 
@@ -210,6 +235,22 @@
             'noi_dung': "Yêu cầu chuyển quyền sở hữu truyện: {{ truyen.ten }}"
         }, 'transferModal');
     };
+
+    // Thêm Listener cho nút xác nhận Share
+    const shareConfirmBtn = document.getElementById('shareConfirmBtn');
+    if (shareConfirmBtn) {
+        shareConfirmBtn.onclick = () => {
+            const user = document.getElementById('shareUsernameInput').value.trim();
+            if (!user) return alert("Vui lòng nhập tên người dùng!");
+
+            postData({
+                'loai': 'share',
+                'receiver_username': user,
+                'truyen_id': '{{ truyen.id }}',
+                'noi_dung': "Yêu cầu chung quyền quản trị truyện: {{ truyen.ten }}"
+            }, 'shareModal');
+        };
+    }
 
     document.getElementById('deleteConfirmBtn').onclick = () => {
         const reason = document.getElementById('deleteReasonInput').value.trim();

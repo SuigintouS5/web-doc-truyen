@@ -3,7 +3,191 @@ document.addEventListener('DOMContentLoaded', function() {
     const sortModal = document.getElementById('sortModal');
     const sortableList = document.getElementById('sortableList'); // list container
     const saveSortBtn = document.getElementById('saveSortBtn');
+    const editorContainer = document.getElementById('editor-container');
+    const chapterContentInput = document.getElementById('chapterContentInput');
+    const wordCountNumber = document.getElementById('wordCountNumber');
+    const openFindReplaceBtn = document.getElementById('openFindReplaceBtn');
+    const findReplaceModal = document.getElementById('findReplaceModal');
+    const closeFindReplaceModal = document.getElementById('closeFindReplaceModal');
+    const closeFindReplaceBtn = document.getElementById('closeFindReplaceBtn');
+    const findPrevBtn = document.getElementById('findPrevBtn');
+    const findNextBtn = document.getElementById('findNextBtn');
+    const replaceBtn = document.getElementById('replaceBtn');
+    const replaceAllBtn = document.getElementById('replaceAllBtn');
+    const matchCaseCheckbox = document.getElementById('matchCaseCheckbox');
+    const findMatchCount = document.getElementById('findMatchCount');
+    const findInput = document.getElementById('findInput');
+    const replaceInput = document.getElementById('replaceInput');
     let currentSortType = ''; // 'volume' hoặc 'chapter'
+    let quillEditor = null;
+    let searchMatches = [];
+    let currentMatchIndex = -1;
+
+    function updateChapterContentFromQuill() {
+        if (!quillEditor || !chapterContentInput) return;
+        const html = quillEditor.root.innerHTML;
+        chapterContentInput.value = html === '<p><br></p>' ? '' : html;
+        if (wordCountNumber) {
+            const text = quillEditor.getText().trim();
+            wordCountNumber.innerText = text ? text.split(/\s+/).length.toLocaleString() : '0';
+        }
+    }
+
+    function initQuillEditor() {
+        if (!editorContainer || !window.Quill) return;
+        quillEditor = new Quill(editorContainer, {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ header: [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ color: [] }, { background: [] }],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['blockquote', 'code-block'],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            }
+        });
+        quillEditor.on('text-change', updateChapterContentFromQuill);
+        if (chapterContentInput && chapterContentInput.value.trim()) {
+            quillEditor.root.innerHTML = chapterContentInput.value;
+            updateChapterContentFromQuill();
+        }
+    }
+
+    initQuillEditor();
+
+    function setChapterContent(content = '') {
+        if (!quillEditor || !chapterContentInput) return;
+        quillEditor.root.innerHTML = content || '';
+        updateChapterContentFromQuill();
+    }
+
+    window.setChapterContent = setChapterContent;
+
+    function escapeRegExp(value) {
+        return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function escapeHtml(value) {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function updateMatchCountLabel() {
+        if (!findMatchCount) return;
+        if (searchMatches.length === 0) {
+            findMatchCount.innerText = '0 kết quả';
+            return;
+        }
+        findMatchCount.innerText = `${currentMatchIndex + 1}/${searchMatches.length} kết quả`;
+    }
+
+    function selectCurrentMatch() {
+        if (!quillEditor || searchMatches.length === 0 || currentMatchIndex < 0) return;
+        const match = searchMatches[currentMatchIndex];
+        quillEditor.setSelection(match.index, match.length, 'silent');
+    }
+
+    function refreshFindMatches() {
+        searchMatches = [];
+        currentMatchIndex = -1;
+        if (!quillEditor || !findInput) return updateMatchCountLabel();
+
+        const query = findInput.value.trim();
+        if (!query) return updateMatchCountLabel();
+
+        const source = quillEditor.getText();
+        const matchCase = matchCaseCheckbox?.checked;
+        const haystack = matchCase ? source : source.toLowerCase();
+        const needle = matchCase ? query : query.toLowerCase();
+
+        let offset = 0;
+        while (true) {
+            const index = haystack.indexOf(needle, offset);
+            if (index === -1) break;
+            searchMatches.push({ index, length: query.length });
+            offset = index + query.length;
+        }
+
+        if (searchMatches.length > 0) {
+            currentMatchIndex = 0;
+            selectCurrentMatch();
+        }
+        updateMatchCountLabel();
+    }
+
+    function changeMatch(step) {
+        if (searchMatches.length === 0) return;
+        currentMatchIndex = (currentMatchIndex + step + searchMatches.length) % searchMatches.length;
+        selectCurrentMatch();
+        updateMatchCountLabel();
+    }
+
+    function replaceCurrentMatch() {
+        if (!quillEditor || searchMatches.length === 0 || currentMatchIndex < 0) return;
+        const match = searchMatches[currentMatchIndex];
+        const replacement = replaceInput?.value || '';
+        quillEditor.deleteText(match.index, match.length, 'silent');
+        quillEditor.insertText(match.index, replacement, 'silent');
+        updateChapterContentFromQuill();
+        refreshFindMatches();
+    }
+
+    function replaceAllMatches() {
+        if (!quillEditor || !findInput) return;
+        const query = findInput.value.trim();
+        if (!query) return;
+        const matchCase = matchCaseCheckbox?.checked;
+        const source = quillEditor.getText();
+        const haystack = matchCase ? source : source.toLowerCase();
+        const needle = matchCase ? query : query.toLowerCase();
+        const replacement = replaceInput?.value || '';
+
+        const matchIndexes = [];
+        let offset = 0;
+        while (true) {
+            const index = haystack.indexOf(needle, offset);
+            if (index === -1) break;
+            matchIndexes.push(index);
+            offset = index + query.length;
+        }
+
+        for (let i = matchIndexes.length - 1; i >= 0; i--) {
+            quillEditor.deleteText(matchIndexes[i], query.length, 'silent');
+            quillEditor.insertText(matchIndexes[i], replacement, 'silent');
+        }
+
+        updateChapterContentFromQuill();
+        refreshFindMatches();
+    }
+
+    function openFindReplace() {
+        if (!findReplaceModal) return;
+        findReplaceModal.classList.remove('hidden');
+        setTimeout(() => findInput?.focus(), 50);
+        refreshFindMatches();
+    }
+
+    function closeFindReplace() {
+        if (!findReplaceModal) return;
+        findReplaceModal.classList.add('hidden');
+    }
+
+    if (openFindReplaceBtn) openFindReplaceBtn.onclick = openFindReplace;
+    if (closeFindReplaceModal) closeFindReplaceModal.onclick = closeFindReplace;
+    if (closeFindReplaceBtn) closeFindReplaceBtn.onclick = closeFindReplace;
+    if (findPrevBtn) findPrevBtn.onclick = () => changeMatch(-1);
+    if (findNextBtn) findNextBtn.onclick = () => changeMatch(1);
+    if (replaceBtn) replaceBtn.onclick = replaceCurrentMatch;
+    if (replaceAllBtn) replaceAllBtn.onclick = replaceAllMatches;
+    if (findInput) findInput.addEventListener('input', refreshFindMatches);
+    if (matchCaseCheckbox) matchCaseCheckbox.addEventListener('change', refreshFindMatches);
 
     // --- HÀM TIỆN ÍCH ---
     function openModal(modalId) {

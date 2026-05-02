@@ -112,7 +112,7 @@
 
 <div id="chapterModal" class="volume-modal hidden">
     <div class="modal-overlay"></div>
-    <div class="volume-modal-content" style="max-width: 800px; width: 95%;">
+    <div class="volume-modal-content" style="max-width: 850px; width: min(95vw, 850px);">
         <div class="modal-header" style="display: flex; justify-content: space-between;">
             <h3 id="chapterModalTitle">Thêm chương</h3>
             <span id="closeChapterX" style="cursor:pointer; font-size: 20px;">&times;</span>
@@ -127,17 +127,61 @@
                 <input type="text" id="chapterNameInput" placeholder="Nhập tên chương">
             </div>
             <div style="margin-bottom: 15px;">
-                <label>Nội dung chương</label>
-                <textarea id="chapterContentInput" rows="15"></textarea>
-                <div id="wordCountDisplay">
-                    Số chữ: <span id="wordCountNumber">0</span>
-                </div>
+    <label>Nội dung chương</label>
+    <div style="display:flex; justify-content:flex-end; margin-top: 8px;">
+        <button type="button" id="openFindReplaceBtn" style="padding: 7px 14px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;">
+            Tìm & Thay thế
+        </button>
+    </div>
+
+    <!-- Khung soạn thảo Quill -->
+    <div id="editor-container" style="height: 200px; overflow-y: auto; background: white; border-color: #e2e8f0;"></div>    
+    <!-- Trường ẩn để gửi dữ liệu về Server (Giữ ID cũ để không hỏng JS xử lý lưu của bạn) -->
+    <input type="hidden" id="chapterContentInput" name="noi_dung">
+
+    <div id="wordCountDisplay" style="margin-top: 8px; font-size: 13px; color: #64748b;">
+        Số chữ: <span id="wordCountNumber" style="font-weight: 600; color: #1e293b;">0</span>
+    </div>
+    <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 10px; align-items: center;">
+        <button type="button" id="closeChapterBtn" class="btn-close-modal" aria-label="Đóng chương" style="font-size: 0.95rem; padding: 0 14px; min-width: 46px;">×</button>
+        <button type="button" id="saveChapterBtn" style="background: #2563eb; color: white; border: none; border-radius: 10px; padding: 10px 18px; cursor: pointer;">Thêm chương</button>
+    </div>
+</div>
             </div>
         </div>
-        <div class="modal-footer">
-            <button id="closeChapterBtn">Hủy</button>
-            <button id="saveChapterBtn">Thêm chương</button>
+    </div>
+</div>
+
+<div id="findReplaceModal" class="find-replace-panel hidden" style="position: fixed; top: 110px; right: 16px; display: flex; align-items: flex-start; justify-content: flex-end; z-index: 11001; padding: 0; width: auto;">
+    <div class="volume-modal-content" style="width: 400px; max-width: calc(100vw - 32px); padding: 24px; border-radius: 28px; box-shadow: 0 24px 80px rgba(15,23,42,0.16); background: white;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+            <h3>Tìm và Thay thế</h3>
+            <button type="button" id="closeFindReplaceModal" style="background: transparent; border: none; font-size: 26px; line-height: 1; cursor: pointer;">×</button>
         </div>
+        <div class="modal-body" style="padding-top: 0;">
+            <div style="display: grid; gap: 16px;">
+                <div>
+                    <label style="display: block; margin-bottom: 6px; font-weight: 600;">Tìm kiếm</label>
+                    <input type="text" id="findInput" placeholder="Nhập văn bản cần tìm..." style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 12px;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 6px; font-weight: 600;">Thay thế bằng</label>
+                    <input type="text" id="replaceInput" placeholder="Nhập văn bản thay thế..." style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 12px;">
+                </div>
+                <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap;">
+                    <input type="checkbox" id="matchCaseCheckbox" style="margin: 0;">
+                    <span>Phân biệt chữ hoa/thường</span>
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end;">
+            <button type="button" id="findPrevBtn" style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 10px 16px; border-radius: 10px; cursor: pointer;">Trước</button>
+            <button type="button" id="findNextBtn" style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 10px 16px; border-radius: 10px; cursor: pointer;">Sau</button>
+            <button type="button" id="replaceBtn" style="background: #2563eb; color: white; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer;">Thay thế</button>
+            <button type="button" id="replaceAllBtn" style="background: #16a34a; color: white; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer;">Thay tất cả</button>
+            <button type="button" id="closeFindReplaceBtn" style="background: #e5e7eb; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer;">Đóng</button>
+        </div>
+        <div id="findMatchCount" style="margin-top: 12px; font-size: 13px; color: #475569;">0 kết quả</div>
     </div>
 </div>
 
@@ -171,5 +215,7 @@
     </div>
 </div>
 
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="{% static 'js/volume-manager.js' %}"></script>

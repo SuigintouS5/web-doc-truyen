@@ -147,9 +147,38 @@
     width: 500px; max-width: 90%; padding: 30px;
     border-radius: 24px; z-index: 10001;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+    max-height: calc(100vh - 40px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
 }
 
-#chapterModal .volume-modal-content { width: 850px; }
+#chapterModal .volume-modal-content { width: min(850px, 95vw); }
+#chapterModal .modal-body,
+#volumeModal .modal-body {
+    overflow-y: auto;
+    max-height: calc(100vh - 260px);
+    padding-bottom: 16px;
+}
+
+.modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+#chapterModal .modal-footer,
+#volumeModal .modal-footer {
+    display: flex; justify-content: flex-end;
+    gap: 12px; margin-top: 20px;
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding-top: 12px;
+    z-index: 1;
+}
 
 .modal-body label {
     display: block; margin-bottom: 8px;
@@ -232,4 +261,19 @@
     color: #7e22ce; /* màu chữ tím đậm */
     font-weight: 600; /* chữ đậm hơn một chút */
     box-shadow: 0 2px 4px rgba(168, 85, 247, 0.1); /* hiệu ứng bóng đổ nhẹ */
+}
+
+/* Giới hạn chiều cao của khung soạn thảo */
+.ql-container {
+    height: 450px; /* Bạn có thể chỉnh lại số này cho vừa mắt */
+    overflow-y: auto;
+    background: #fff;
+}
+
+/* Đảm bảo toolbar luôn dính trên đầu khi cuộn nội dung */
+.ql-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f8fafc;
 }

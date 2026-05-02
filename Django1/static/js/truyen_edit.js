@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const chapterContentInput = document.getElementById('chapterContentInput');
     const btnSaveChapter = document.getElementById('saveChapterBtn');
     const wordCountNumber = document.getElementById('wordCountNumber');
+    const findReplaceModal = document.getElementById('findReplaceModal');
     let currentVolIdForChapter = null;
     let currentChapterEditId = null;
 
@@ -163,6 +164,9 @@ document.addEventListener('DOMContentLoaded', function() {
             chapterNoInput.value = "";
             chapterNameInput.value = "";
             chapterContentInput.value = "";
+            if (typeof window.setChapterContent === 'function') {
+                window.setChapterContent('');
+            }
             if (wordCountNumber) wordCountNumber.innerText = "0";
 
             chapterModal.classList.remove('hidden');
@@ -188,6 +192,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     chapterNoInput.value = data.so_chuong;
                     chapterNameInput.value = data.ten;
                     chapterContentInput.value = data.noi_dung;
+                    if (typeof window.setChapterContent === 'function') {
+                        window.setChapterContent(data.noi_dung || '');
+                    }
                     updateWordCount();
 
                     chapterModal.classList.remove('hidden');
@@ -256,6 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
             el.onclick = function() {
                 volModal.classList.add('hidden');
                 chapterModal.classList.add('hidden');
+                findReplaceModal?.classList.add('hidden');
                 document.body.style.overflow = '';
             };
         });
