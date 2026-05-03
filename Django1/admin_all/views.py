@@ -23,17 +23,20 @@ def superuser_required(view_func):
 def dashboard(request):
     """Trang chủ Admin với biểu đồ và thống kê"""
     # --- 1. Thống kê tổng quan ---
+    # Đếm tổng số lượng dựa trên các Model đã định nghĩa
     tong_so_truyen = Truyen.objects.count()
     tong_so_chuong = Chuong.objects.count()
     tong_so_user = User.objects.count()
     
-    # Đếm số yêu cầu xóa và báo cáo chưa xử lý
+    # Đếm số yêu cầu xóa từ Notification và báo cáo chưa xử lý từ Report
     so_yeu_cau_cho = Notification.objects.filter(loai='delete_request').count()
     so_bao_cao_cho = Report.objects.filter(trang_thai='pending').count()
 
-    # --- 2. Dữ liệu Biểu đồ (7 ngày qua) ---
+    # --- 2. Dữ liệu Biểu đồ 1: Số chương đăng (7 ngày qua) ---
     today = timezone.now().date()
     seven_days_ago = today - timedelta(days=6)
+    
+    # Thống kê số chương theo từng ngày
     stats = Chuong.objects.filter(ngay_dang__date__gte=seven_days_ago) \
         .annotate(day=TruncDay('ngay_dang')) \
         .values('day') \
@@ -45,10 +48,21 @@ def dashboard(request):
     for i in range(7):
         current_day = seven_days_ago + timedelta(days=i)
         labels.append(current_day.strftime('%d/%m'))
+        # Lấy số lượng chương của ngày hiện tại, nếu không có thì mặc định là 0
         count = next((entry['count'] for entry in stats if entry['day'].date() == current_day), 0)
         data_points.append(count)
 
-    # --- 3. Hoạt động gần đây ---
+    # --- 3. Dữ liệu Biểu đồ 2: Thống kê Truyện theo Thể loại ---
+    # SỬA LỖI: Sử dụng 'truyens' thay vì 'truyen' theo related_name trong Model
+    stats_the_loai = Genre.objects.annotate(
+        num_truyen=Count('truyens') 
+    ).order_by('-num_truyen')[:7]
+
+    genre_labels = [g.name for g in stats_the_loai]
+    genre_data = [g.num_truyen for g in stats_the_loai]
+
+    # --- 4. Hoạt động gần đây ---
+    # Lấy 6 thông báo mới nhất kèm dữ liệu liên quan để tối ưu truy vấn
     recent_actions = Notification.objects.select_related('user_from', 'truyen').all().order_by('-ngay_tao')[:6]
 
     context = {
@@ -57,8 +71,11 @@ def dashboard(request):
         'tong_so_user': tong_so_user,
         'so_yeu_cau_cho': so_yeu_cau_cho,
         'so_bao_cao_cho': so_bao_cao_cho,
+        # Chuyển đổi dữ liệu sang định dạng JSON để Chart.js có thể đọc được
         'chart_labels': json.dumps(labels),
         'chart_data': json.dumps(data_points),
+        'genre_labels': json.dumps(genre_labels),
+        'genre_data': json.dumps(genre_data),
         'recent_actions': recent_actions,
     }
     return render(request, 'admin_all/base_admin.html', context)

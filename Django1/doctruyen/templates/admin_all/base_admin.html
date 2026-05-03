@@ -125,93 +125,137 @@
             </div>
 
             <div class="dashboard-grid">
-                <div class="card">
-                    <h3 style="font-size: 16px; margin-bottom: 15px;">Xu Hướng Cập Nhật</h3>
-                    <div style="height: 300px;"><canvas id="readershipChart"></canvas></div>
-                </div>
+    <!-- Biểu đồ 1: Xu hướng (Dòng) -->
+    <div class="card">
+        <h3 style="font-size: 16px; margin-bottom: 15px;">
+            <i class="fas fa-chart-line" style="margin-right: 8px; color: #3b82f6;"></i>Xu Hướng Cập Nhật (7 ngày)
+        </h3>
+        <div style="height: 300px;"><canvas id="readershipChart"></canvas></div>
+    </div>
 
-                <div class="card">
-                    <h3 style="font-size: 16px; margin-bottom: 15px;">Hoạt Động Gần Đây</h3>
-                    <div class="action-list">
-                        {% for action in recent_actions %}
-                        <div class="action-item">
-                            <div class="action-point"></div>
-                            <div class="action-content">
-                                <strong style="font-size: 13px;">
-                                    {% if action.loai == 'delete_request' %}Yêu cầu xóa truyện
-                                    {% elif action.loai == 'new_chapter' %}Cập nhật chương mới
-                                    {% else %}Hành động hệ thống{% endif %}
-                                </strong>
-                                <div style="color: var(--text-muted); font-size: 12px;">
-                                    {{ action.truyen.ten|default:"Hệ thống" }} bởi {{ action.user_from.username }}
-                                </div>
-                                <div class="action-time">{{ action.ngay_tao|time_vi }} trước</div>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <p style="font-size: 12px; color: var(--text-muted);">Chưa có hoạt động mới.</p>
-                        {% endfor %}
+    <!-- Biểu đồ 2: Thể loại (Tròn) - MỚI THÊM -->
+    <div class="card">
+        <h3 style="font-size: 16px; margin-bottom: 15px;">
+            <i class="fas fa-chart-pie" style="margin-right: 8px; color: #1cc88a;"></i>Cơ Cấu Thể Loại
+        </h3>
+        <div style="height: 300px;"><canvas id="genreChart"></canvas></div>
+    </div>
+
+    <!-- Danh sách hoạt động (Để ở hàng dưới) -->
+    <div class="card" style="grid-column: span 2;">
+        <h3 style="font-size: 16px; margin-bottom: 15px;">Hoạt Động Gần Đây</h3>
+        <div class="action-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+            {% for action in recent_actions %}
+            <div class="action-item">
+                <div class="action-point"></div>
+                <div class="action-content">
+                    <strong style="font-size: 13px;">
+                        {% if action.loai == 'delete_request' %}Yêu cầu xóa truyện
+                        {% elif action.loai == 'new_chapter' %}Cập nhật chương mới
+                        {% else %}Hành động hệ thống{% endif %}
+                    </strong>
+                    <div style="color: var(--text-muted); font-size: 12px;">
+                        {{ action.truyen.ten|default:"Hệ thống" }} bởi {{ action.user_from.username }}
                     </div>
+                    <div class="action-time">{{ action.ngay_tao|time_vi }} trước</div>
                 </div>
             </div>
+            {% empty %}
+            <p style="font-size: 12px; color: var(--text-muted);">Chưa có hoạt động mới.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 
-            <script id="chart-data" type="application/json">
-                {
-                    "labels": {{ chart_labels|safe|default:"[]" }},
-                    "data": {{ chart_data|safe|default:"[]" }}
+           <!-- Chứa dữ liệu sạch từ Django chuyển sang JSON -->
+<script id="chart-data" type="application/json">
+    {
+        "labels": {{ chart_labels|safe|default:"[]" }},
+        "data": {{ chart_data|safe|default:"[]" }},
+        "genreLabels": {{ genre_labels|safe|default:"[]" }},
+        "genreData": {{ genre_data|safe|default:"[]" }}
+    }
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. Xử lý ẩn thông báo
+        setTimeout(function() {
+            const msgContainer = document.querySelector('.messages-container');
+            if (msgContainer) {
+                msgContainer.style.transition = 'opacity 0.5s ease';
+                msgContainer.style.opacity = '0';
+                setTimeout(() => msgContainer.remove(), 500);
+            }
+        }, 5000);
+
+        // 2. Khởi tạo dữ liệu
+        const dataContainer = document.getElementById('chart-data');
+        if (!dataContainer) return;
+        const jsonData = JSON.parse(dataContainer.textContent);
+
+        // --- BIỂU ĐỒ 1: LINE CHART (Số chương) ---
+const ctxLine = document.getElementById('readershipChart').getContext('2d');
+new Chart(ctxLine, {
+    type: 'line',
+    data: {
+        labels: jsonData.labels,
+        datasets: [{
+            label: 'Số chương mới',
+            data: jsonData.data,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.05)',
+            fill: true, 
+            tension: 0.4, 
+            borderWidth: 2, 
+            pointRadius: 4
+        }]
+    },
+    options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        plugins: { 
+            legend: { display: false } 
+        }, // Kết thúc plugins ở đây
+        scales: { // Scales nằm ngang hàng với plugins
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1,
+                    precision: 0
                 }
-            </script>
+            },
+            x: {
+                grid: {
+                    display: false
+                }
+            }
+        }
+    }
+});
 
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    // Tự động ẩn thông báo sau 5 giây
-                    setTimeout(function() {
-                        const msgContainer = document.querySelector('.messages-container');
-                        if (msgContainer) {
-                            msgContainer.style.transition = 'opacity 0.5s ease';
-                            msgContainer.style.opacity = '0';
-                            setTimeout(() => msgContainer.remove(), 500);
-                        }
-                    }, 5000);
-
-                    const canvas = document.getElementById('readershipChart');
-                    const dataContainer = document.getElementById('chart-data');
-                    if (!canvas || !dataContainer) return;
-
-                    const ctx = canvas.getContext('2d');
-                    try {
-                        const jsonData = JSON.parse(dataContainer.textContent);
-                        new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels: jsonData.labels,
-                                datasets: [{
-                                    label: 'Số chương mới',
-                                    data: jsonData.data,
-                                    borderColor: '#3b82f6',
-                                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                                    fill: true, 
-                                    tension: 0.4, 
-                                    borderWidth: 2,
-                                    pointRadius: 4, 
-                                    pointBackgroundColor: '#fff'
-                                }]
-                            },
-                            options: {
-                                responsive: true, 
-                                maintainAspectRatio: false,
-                                plugins: { legend: { display: false } },
-                                scales: { 
-                                    y: { beginAtZero: true, ticks: { stepSize: 1 } },
-                                    x: { grid: { display: false } }
-                                }
-                            }
-                        });
-                    } catch (e) {
-                        console.error("Lỗi parse dữ liệu biểu đồ:", e);
-                    }
-                });
-            </script>
+        // --- BIỂU ĐỒ 2: DOUGHNUT CHART (Thể loại) ---
+        const ctxPie = document.getElementById('genreChart').getContext('2d');
+        new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: jsonData.genreLabels,
+                datasets: [{
+                    data: jsonData.genreData,
+                    backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69'],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                }
+            }
+        });
+    });
+</script>
             {% endblock %}
         </main>
     </div>

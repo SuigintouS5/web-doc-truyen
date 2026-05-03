@@ -123,16 +123,12 @@ def chuong_detail(request, truyen_slug, chuong_slug):
     v_stat.count = F('count') + 1
     v_stat.save()
 
-    # 2. Cộng dồn vào view tổng của truyện
     truyen.view_tong = F('view_tong') + 1
     truyen.save(update_fields=['view_tong'])
-    # ----------------------------
     
-    # --- PHẦN THÊM MỚI: Kiểm tra bookmark ngay tại đây ---
     is_bookmarked = False
     if request.user.is_authenticated:
         is_bookmarked = Bookmark.objects.filter(user=request.user, chuong=chuong).exists()
-    # ---------------------------------------------------
 
     if request.user.is_authenticated:
         LichSuDoc.objects.update_or_create(
@@ -143,7 +139,6 @@ def chuong_detail(request, truyen_slug, chuong_slug):
     
     volumes_list = truyen.volumes.all().prefetch_related('chuongs')
 
-    # Tìm chương TRƯỚC và SAU (Giữ nguyên logic xịn của bạn)
     prev_chuong = Chuong.objects.filter(
         volume__truyen=truyen
     ).filter(
