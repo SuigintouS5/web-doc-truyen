@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const commentInput = document.getElementById('comment-content-main');
     const submitCommentBtn = document.getElementById('submit-comment-ajax');
     const commentsContainer = document.getElementById('comments-list-container');
+    const btnBookmark = document.getElementById('btn-bookmark');
     
     // Đảm bảo các input ẩn này có trong HTML để lấy ID chương và Token bảo mật
     const chuongId = document.getElementById('chuong-id')?.value;
@@ -23,6 +24,37 @@ document.addEventListener('DOMContentLoaded', function() {
         if(tocSidebar) tocSidebar.classList.remove('active');
         if(overlay) overlay.classList.remove('active');
         if(settingsPanel) settingsPanel.style.display = 'none';
+    }
+
+    function showToast(message, duration = 2500) {
+        let toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.position = 'fixed';
+        toast.style.bottom = '20px';
+        toast.style.left = '50%';
+        toast.style.transform = 'translateX(-50%)';
+        toast.style.background = 'rgba(30, 136, 229, 0.95)';
+        toast.style.color = '#fff';
+        toast.style.padding = '12px 18px';
+        toast.style.borderRadius = '999px';
+        toast.style.boxShadow = '0 8px 25px rgba(15, 23, 42, 0.25)';
+        toast.style.zIndex = '9999';
+        toast.style.fontSize = '13px';
+        toast.style.fontWeight = '500';
+        toast.style.maxWidth = '90%';
+        toast.style.textAlign = 'center';
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        document.body.appendChild(toast);
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateX(-50%) translateY(0)';
+        });
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(12px)';
+            toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+        }, duration);
     }
 
     // --- 1. TẢI CẤU HÌNH GIAO DIỆN ---
@@ -62,6 +94,41 @@ document.addEventListener('DOMContentLoaded', function() {
         btnSettings.onclick = (e) => { 
             e.stopPropagation(); 
             settingsPanel.style.display = (settingsPanel.style.display === 'block') ? 'none' : 'block'; 
+        };
+    }
+
+    if (btnBookmark) {
+        btnBookmark.onclick = function() {
+            if (!chuongId) return;
+            fetch(`/chuong/${chuongId}/bookmark/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => {
+                if (res.redirected) {
+                    window.location.href = res.url;
+                    return null;
+                }
+                if (!res.ok) throw new Error('Lỗi server khi cập nhật bookmark');
+                return res.json();
+            })
+            .then(data => {
+                if (!data) return;
+                if (data.status === 'success') {
+                    const added = data.action === 'added';
+                    btnBookmark.classList.toggle('active', added);
+                    showToast(added ? 'Đã thêm bookmark' : 'Đã gỡ bookmark');
+                } else {
+                    showToast(data.message || 'Không thể cập nhật bookmark');
+                }
+            })
+            .catch(error => {
+                console.error('Bookmark error:', error);
+                alert('Không thể cập nhật bookmark. Vui lòng thử lại.');
+            });
         };
     }
 
